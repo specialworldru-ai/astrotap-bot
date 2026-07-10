@@ -178,21 +178,28 @@ async def user_cmd(msg: types.Message):
 
 # ============ API ============
 
-# API для автосохранения
 @api.post("/save")
 async def save_balance(request: Request):
     try:
         data = await request.json()
-        print("SAVE DATA:", data)  # ← добавить
         user_id = data.get("user_id")
         balance = data.get("balance")
         username = data.get("username", "unknown")
-        if user_id and balance is not None:
+        
+        # Если user_id нет — сохраняем с username
+        if balance is not None:
             async with aiosqlite.connect("users.db") as db:
-                await db.execute(
-                    "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
-                    (user_id, balance, username)
-                )
+                if user_id:
+                    await db.execute(
+                        "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
+                        (user_id, balance, username)
+                    )
+                else:
+                    # Сохраняем по username
+                    await db.execute(
+                        "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
+                        (hash(username) % 1000000000, balance, username)
+                    )
                 await db.commit()
             return {"status": "ok"}
     except Exception as e:
