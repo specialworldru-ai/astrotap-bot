@@ -192,7 +192,7 @@ async def user_cmd(msg: types.Message):
         await msg.answer("❌ Пользователь не найден.")
 
 @dp.message(Command("fix"))
-async def fix_cmd(msg: types.Message):
+async def fix_cmd(msg: types.Message):s
     if msg.from_user.id != ADMIN_ID: return
     
     user_id = msg.from_user.id
@@ -213,24 +213,23 @@ async def fix_cmd(msg: types.Message):
 async def save_balance(request: Request):
     try:
         data = await request.json()
-        user_id = data.get("user_id")
+        user_id = data.get("user_id", 0)
         balance = data.get("balance")
         username = data.get("username", "unknown")
         
-        # Если user_id нет — сохраняем с username
         if balance is not None:
             async with aiosqlite.connect("users.db") as db:
-                if user_id:
-                    await db.execute(
-                        "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
-                        (user_id, balance, username)
-                    )
-                else:
-                    # Сохраняем по username
-                    await db.execute(
-                        "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
-                        (hash(username) % 1000000000, balance, username)
-                    )
+                # Если username неизвестный — проверяем есть ли уже в базе
+                if username == "unknown" and user_id:
+                    cursor = await db.execute("SELECT username FROM users WHERE user_id = ? AND username != 'unknown'", (user_id,))
+                    row = await cursor.fetchone()
+                    if row:
+                        username = row[0]
+                
+                await db.execute(
+                    "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
+                    (user_id, balance, username)
+                )
                 await db.commit()
             return {"status": "ok"}
     except Exception as e:
