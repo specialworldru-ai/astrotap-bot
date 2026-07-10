@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import aiosqlite
 
-TOKEN = "8531331166:AAEsQZ9SXtTa2r21axUqdAXq8mJ7z9x4_MM"
+TOKEN = "8531331166:AAEnhrBbWg4hvKQUeidzTLpLo7nyQYHoEr4"
 WEBAPP_URL = "https://bright-peony-7d7f91.netlify.app"
 
 bot = Bot(token=TOKEN)
