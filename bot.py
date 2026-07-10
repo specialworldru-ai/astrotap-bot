@@ -191,6 +191,22 @@ async def user_cmd(msg: types.Message):
     else:
         await msg.answer("❌ Пользователь не найден.")
 
+@dp.message(Command("fix"))
+async def fix_cmd(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    
+    user_id = msg.from_user.id
+    username = msg.from_user.username or msg.from_user.first_name or "unknown"
+    
+    async with aiosqlite.connect("users.db") as db:
+        # Удаляем дубликаты с Unknown
+        await db.execute("DELETE FROM users WHERE username = 'unknown' AND user_id = ?", (user_id,))
+        # Обновляем username
+        await db.execute("UPDATE users SET username = ? WHERE user_id = ?", (username, user_id))
+        await db.commit()
+    
+    await msg.answer(f"✅ Username обновлён: {username}")
+
 # ============ API ============
 
 @api.post("/save")
