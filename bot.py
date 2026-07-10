@@ -5,8 +5,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import WebAppInfo
 from aiogram.filters import Command
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
 import json
 import aiosqlite
 
@@ -178,10 +178,12 @@ async def user_cmd(msg: types.Message):
 
 # ============ API ============
 
+# API для автосохранения
 @api.post("/save")
 async def save_balance(request: Request):
     try:
         data = await request.json()
+        print("SAVE DATA:", data)  # ← добавить
         user_id = data.get("user_id")
         balance = data.get("balance")
         username = data.get("username", "unknown")
@@ -193,8 +195,8 @@ async def save_balance(request: Request):
                 )
                 await db.commit()
             return {"status": "ok"}
-    except:
-        pass
+    except Exception as e:
+        print("Save error:", e)
     return {"status": "error"}
 
 @api.get("/leaderboard")
