@@ -191,21 +191,23 @@ async def user_cmd(msg: types.Message):
     else:
         await msg.answer("❌ Пользователь не найден.")
 
-@dp.message(Command("fix"))
-async def fix_cmd(msg: types.Message):s
+@dp.message(Command("dbcheck"))
+async def db_check(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
     
-    user_id = msg.from_user.id
-    username = msg.from_user.username or msg.from_user.first_name or "unknown"
-    
     async with aiosqlite.connect("users.db") as db:
-        # Удаляем дубликаты с Unknown
-        await db.execute("DELETE FROM users WHERE username = 'unknown' AND user_id = ?", (user_id,))
-        # Обновляем username
-        await db.execute("UPDATE users SET username = ? WHERE user_id = ?", (username, user_id))
-        await db.commit()
+        cursor = await db.execute("SELECT * FROM users")
+        rows = await cursor.fetchall()
     
-    await msg.answer(f"✅ Username обновлён: {username}")
+    if rows:
+        text = "📊 *БАЗА ДАННЫХ:*\n\n"
+        for r in rows[:20]:  # Первые 20 записей
+            text += f"🆔 {r[0]} | 👤 {r[1]} | 💎 {r[2]}\n"
+        text += f"\nВсего записей: {len(rows)}"
+    else:
+        text = "База пуста."
+    
+    await msg.answer(text, parse_mode="Markdown")
 
 # ============ API ============
 
