@@ -11,7 +11,7 @@ import json
 import aiosqlite
 
 TOKEN = "8531331166:AAFjqwWfhyUK8ATb42Bz81Wp1FfBf9bvgpc"
-WEBAPP_URL = "https://bright-peony-7d7f91.netlify.app"
+WEBAPP_URL = "https://specialworldru-ai.github.io/astrotap-bot/tap.html"
 ADMIN_ID = 8683532059
 
 bot = Bot(token=TOKEN)
