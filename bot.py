@@ -6,6 +6,8 @@ from aiogram.types import WebAppInfo
 from aiogram.filters import Command
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
+import json
 import aiosqlite
 
 TOKEN = "8531331166:AAFjqwWfhyUK8ATb42Bz81Wp1FfBf9bvgpc"
@@ -175,6 +177,26 @@ async def user_cmd(msg: types.Message):
         await msg.answer("❌ Пользователь не найден.")
 
 # ============ API ============
+
+@api.post("/save")
+async def save_balance(request: Request):
+    try:
+        data = await request.json()
+        user_id = data.get("user_id")
+        balance = data.get("balance")
+        username = data.get("username", "unknown")
+        if user_id and balance is not None:
+            async with aiosqlite.connect("users.db") as db:
+                await db.execute(
+                    "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
+                    (user_id, balance, username)
+                )
+                await db.commit()
+            return {"status": "ok"}
+    except:
+        pass
+    return {"status": "error"}
+
 @api.get("/leaderboard")
 async def leaderboard():
     async with aiosqlite.connect("users.db") as db:
