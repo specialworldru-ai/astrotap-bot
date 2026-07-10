@@ -36,23 +36,22 @@ async def init_db():
 # ============ /start ============
 @dp.message(lambda msg: msg.text == "/start")
 async def start_cmd(msg: types.Message):
-    # Сохраняем username при старте
     user_id = msg.from_user.id
     username = msg.from_user.username or msg.from_user.first_name or "unknown"
+    
+    # Сохраняем в базу при старте
     async with aiosqlite.connect("users.db") as db:
         await db.execute(
-            "INSERT OR IGNORE INTO users (user_id, balance, username) VALUES (?, 0, ?)",
-            (user_id, username)
-        )
-        # Обновляем username если он изменился
-        await db.execute(
-            "UPDATE users SET username = ? WHERE user_id = ?",
-            (username, user_id)
+            "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
+            (user_id, 0, username)
         )
         await db.commit()
     
+    # Передаём ID и имя в URL мини-аппы
+    webapp_url = f"{WEBAPP_URL}?user_id={user_id}&username={username}"
+    
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=WEBAPP_URL))]],
+        keyboard=[[types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=webapp_url))]],
         resize_keyboard=True
     )
     await msg.answer(
