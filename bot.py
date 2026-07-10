@@ -10,7 +10,7 @@ import aiosqlite
 
 TOKEN = "8531331166:AAFjqwWfhyUK8ATb42Bz81Wp1FfBf9bvgpc"
 WEBAPP_URL = "https://bright-peony-7d7f91.netlify.app"
-ADMIN_ID = 8683532059  # Твой Telegram ID
+ADMIN_ID = 8683532059
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -31,38 +31,34 @@ async def init_db():
         """)
         await db.commit()
 
-# ============ БОТ ============
-
+# ============ /start ============
 @dp.message(lambda msg: msg.text == "/start")
 async def start_cmd(msg: types.Message):
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(
-            text="🪐 ASTROTAP",
-            web_app=WebAppInfo(url=WEBAPP_URL)
-        )]],
+        keyboard=[[types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=WEBAPP_URL))]],
         resize_keyboard=True
     )
-    
-    welcome = (
+    await msg.answer(
         "🚀 *ДОБРО ПОЖАЛОВАТЬ В ASTROTAP!*\n\n"
         "Привет, космонавт! Первая космическая тапалка в Telegram.\n\n"
         "🪐 *Что тебя ждёт:*\n"
         "• Тапай по планете — очки сохраняются *автоматически*!\n"
-        "• 8 апгрейдов до 10 уровней каждый\n"
+        "• 8 апгрейдов до 10 уровней\n"
         "• Таблица лидеров\n"
-        "• Вампиризм, щит, комбо-удар, удача\n\n"
+        "• Вампиризм, щит, комбо, удача\n\n"
         "📢 Канал: @AstroTap\n\n"
-        "Жми кнопку и погнали! 👇"
+        "Жми кнопку и погнали! 👇",
+        reply_markup=kb,
+        parse_mode="Markdown"
     )
-    await msg.answer(welcome, reply_markup=kb, parse_mode="Markdown")
 
+# ============ Сохранение (тихое) ============
 @dp.message(lambda msg: msg.web_app_data is not None)
 async def web_app_data(msg: types.Message):
     try:
         data = int(msg.web_app_data.data)
         user_id = msg.from_user.id
         username = msg.from_user.username or msg.from_user.first_name or "unknown"
-
         async with aiosqlite.connect("users.db") as db:
             await db.execute(
                 "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
@@ -70,36 +66,39 @@ async def web_app_data(msg: types.Message):
             )
             await db.commit()
     except:
-        pass  # Тихое автосохранение
+        pass
 
 # ============ АДМИН-ПАНЕЛЬ ============
-
 @dp.message(Command("admin"))
 async def admin_panel(msg: types.Message):
     if msg.from_user.id != ADMIN_ID:
         await msg.answer("🚫 Нет доступа.")
         return
-    
     await msg.answer(
-        "🛸 *АДМИН-ПАНЕЛЬ*\n\n"
-        "📢 `/broadcast` — рассылка\n"
+        "🛸 *АДМИН-ПАНЕЛЬ ASTROTAP*\n\n"
+        "📢 `/broadcast` — рассылка всем игрокам\n"
         "📊 `/stats` — статистика\n"
-        "💎 `/give ID сумма` — начислить\n"
-        "👤 `/user ID` — инфо",
+        "💎 `/give ID сумма` — начислить очки\n"
+        "👤 `/user ID` — инфо об игроке\n"
+        "🆔 `/myid` — узнать свой ID",
         parse_mode="Markdown"
     )
+
+@dp.message(Command("myid"))
+async def myid_cmd(msg: types.Message):
+    await msg.answer(f"🆔 Твой ID: `{msg.from_user.id}`", parse_mode="Markdown")
 
 @dp.message(Command("broadcast"))
 async def broadcast_start(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
     awaiting_broadcast[msg.from_user.id] = True
-    await msg.answer("📢 Отправь текст рассылки.\n/cancel — отмена")
+    await msg.answer("📢 Отправь текст для рассылки.\nПоддерживается *Markdown*\n/cancel — отмена", parse_mode="Markdown")
 
 @dp.message(Command("cancel"))
 async def cancel_cmd(msg: types.Message):
     if msg.from_user.id in awaiting_broadcast:
         del awaiting_broadcast[msg.from_user.id]
-        await msg.answer("❌ Отменено.")
+        await msg.answer("❌ Рассылка отменена.")
 
 @dp.message(lambda msg: msg.from_user.id in awaiting_broadcast)
 async def broadcast_send(msg: types.Message):
@@ -113,77 +112,69 @@ async def broadcast_send(msg: types.Message):
     sent, failed = 0, 0
     await msg.answer(f"📢 Рассылка на {len(users)} чел...")
     
-    for user in users:
+    for (user_id,) in users:
         try:
-            await bot.send_message(user[0], f"📢 *ASTROTAP*\n\n{msg.text}", parse_mode="Markdown")
+            await bot.send_message(user_id, f"📢 *ОБНОВЛЕНИЕ ASTROTAP*\n\n{msg.text}", parse_mode="Markdown")
             sent += 1
             await asyncio.sleep(0.05)
         except:
             failed += 1
     
-    await msg.answer(f"✅ 📬 {sent} | ❌ {failed}")
+    await msg.answer(f"✅ Готово!\n📬 Отправлено: {sent}\n❌ Не доставлено: {failed}")
 
 @dp.message(Command("stats"))
 async def stats_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
-    
     async with aiosqlite.connect("users.db") as db:
         cursor = await db.execute("SELECT COUNT(*), SUM(balance), MAX(balance) FROM users")
         row = await cursor.fetchone()
-    
     await msg.answer(
-        f"📊 *СТАТИСТИКА*\n\n👥 Игроков: {row[0]}\n💎 Очков: {row[1] or 0}\n🏆 Рекорд: {row[2] or 0}",
+        f"📊 *СТАТИСТИКА*\n\n👥 Игроков: {row[0]}\n💎 Всего очков: {row[1] or 0}\n🏆 Рекорд: {row[2] or 0}",
         parse_mode="Markdown"
     )
 
 @dp.message(Command("give"))
 async def give_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
-    
     parts = msg.text.split()
     if len(parts) < 3:
         await msg.answer("/give [ID] [сумма]")
         return
-    
     try:
         target_id, amount = int(parts[1]), int(parts[2])
     except:
         await msg.answer("❌ /give 123456 1000")
         return
-    
     async with aiosqlite.connect("users.db") as db:
         await db.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?)", (target_id, amount, "admin_gift"))
         await db.commit()
-    
     await msg.answer(f"✅ {amount} 💎 → {target_id}")
     try:
-        await bot.send_message(target_id, f"🎁 Админ начислил {amount} 💎!")
+        await bot.send_message(target_id, f"🎁 Администратор начислил вам {amount} 💎!")
     except:
         pass
 
 @dp.message(Command("user"))
 async def user_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
-    
     parts = msg.text.split()
     if len(parts) < 2:
         await msg.answer("/user [ID]")
         return
-    
     try:
         target_id = int(parts[1])
     except:
-        await msg.answer("❌ ID")
+        await msg.answer("❌ Неверный ID")
         return
-    
     async with aiosqlite.connect("users.db") as db:
         cursor = await db.execute("SELECT balance, username FROM users WHERE user_id = ?", (target_id,))
         row = await cursor.fetchone()
-    
-    await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}" if row else "❌ Не найден.")
+    if row:
+        await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}")
+    else:
+        await msg.answer("❌ Пользователь не найден.")
 
 # ============ API ============
-
 @api.get("/leaderboard")
 async def leaderboard():
     async with aiosqlite.connect("users.db") as db:
