@@ -7,8 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import aiosqlite
 
-TOKEN = "ТВОЙ_ТОКЕН_ОТ_BOTFATHER"
-WEBAPP_URL = "https://твой-сайт.netlify.app/tap.html"
+TOKEN = "8531331166:AAEL1Peq_96KNIg0x2NJtD1DSwR7aDNB44Q"
+WEBAPP_URL = "https://bright-peony-7d7f91.netlify.app"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
