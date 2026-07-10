@@ -1,0 +1,367 @@
+<!-- tap.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AstroTap</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: radial-gradient(ellipse at center, #0d0d2b 0%, #050510 100%); font-family: 'Orbitron', sans-serif; overflow-x: hidden; user-select: none; min-height: 100vh; color: #e0e7ff; -webkit-tap-highlight-color: transparent; }
+        .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .star { position: absolute; background: white; border-radius: 50%; animation: twinkle var(--duration) ease-in-out infinite; animation-delay: var(--delay); opacity: 0; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at center, #0a0a1a 0%, #020208 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.6s ease; }
+        .loading-screen.hidden { opacity: 0; pointer-events: none; }
+        .loading-logo { font-size: clamp(28px, 8vw, 48px); font-weight: 900; text-align: center; background: linear-gradient(135deg, #a78bfa, #7c3aed, #4f46e5, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 4px; animation: glow 2s ease-in-out infinite; margin-bottom: 20px; padding: 0 10px; word-break: break-all; }
+        @keyframes glow { 0%, 100% { filter: drop-shadow(0 0 15px rgba(124, 58, 237, 0.8)); } 50% { filter: drop-shadow(0 0 30px rgba(236, 72, 153, 0.8)); } }
+        .loading-planet { width: 60px; height: 60px; background: radial-gradient(circle at 30% 30%, #a78bfa, #4c1d95 60%, #1e1b4b); border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; box-shadow: 0 0 30px rgba(124, 58, 237, 0.6); margin-bottom: 16px; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+        .loading-text { font-size: 12px; color: #818cf8; letter-spacing: 3px; }
+        .loading-dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
+        @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+        .onboarding-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 999; transition: opacity 0.4s ease; padding: 16px; }
+        .onboarding-overlay.hidden { opacity: 0; pointer-events: none; }
+        .onboarding-card { background: rgba(20, 15, 50, 0.95); border: 2px solid rgba(124, 58, 237, 0.5); border-radius: 20px; padding: 24px 16px; width: 100%; max-width: 340px; text-align: center; position: relative; overflow: hidden; box-shadow: 0 0 40px rgba(124, 58, 237, 0.4); }
+        .onboarding-icon { font-size: 48px; margin-bottom: 12px; animation: bounce 1s ease infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .onboarding-title { font-size: 20px; font-weight: 900; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; letter-spacing: 2px; }
+        .onboarding-text { font-size: 12px; color: #a5b4fc; line-height: 1.5; }
+        .onboarding-swipe-hint { font-size: 10px; color: #6366f1; margin-top: 16px; letter-spacing: 1px; animation: swipeHint 1.5s ease-in-out infinite; }
+        @keyframes swipeHint { 0%, 100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 1; transform: translateX(8px); } }
+        .onboarding-dots { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+        .onboarding-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(124, 58, 237, 0.3); transition: all 0.3s; }
+        .onboarding-dot.active { background: #a78bfa; box-shadow: 0 0 8px #a78bfa; width: 20px; border-radius: 3px; }
+        .container { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 12px 10px 20px; gap: 14px; max-width: 420px; margin: 0 auto; }
+        .title { font-size: clamp(20px, 6vw, 28px); font-weight: 900; text-align: center; background: linear-gradient(135deg, #a78bfa, #7c3aed, #4f46e5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 4px; padding: 0 10px; word-break: break-all; }
+        .channel-btn { display: flex; align-items: center; gap: 8px; background: rgba(30, 27, 75, 0.8); border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 25px; padding: 8px 16px; transition: all 0.3s ease; cursor: pointer; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+        .channel-btn:active { box-shadow: 0 0 20px rgba(124, 58, 237, 0.6); border-color: rgba(167, 139, 250, 0.8); }
+        .channel-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #2AABEE, #229ED9); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; box-shadow: 0 0 10px rgba(42, 171, 238, 0.5); }
+        .channel-text { font-size: 11px; font-weight: 700; color: #e0e7ff; letter-spacing: 1px; }
+        .score-section { text-align: center; }
+        .score-label { font-size: 10px; color: #818cf8; letter-spacing: 2px; }
+        #score, #scoreUpgrades { font-size: 40px; font-weight: 700; color: #e0e7ff; text-shadow: 0 0 20px rgba(167, 139, 250, 0.8); transition: transform 0.15s; }
+        #score.pulse { transform: scale(1.15); }
+        .planet-wrapper { position: relative; width: 160px; height: 160px; }
+        .planet { width: 160px; height: 160px; background: radial-gradient(circle at 30% 30%, #a78bfa, #4c1d95 60%, #1e1b4b); border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px; font-weight: 700; color: #e0e7ff; letter-spacing: 2px; box-shadow: 0 0 40px rgba(124, 58, 237, 0.6), 0 0 80px rgba(124, 58, 237, 0.3), inset 0 -8px 16px rgba(0,0,0,0.4); transition: transform 0.1s ease; position: relative; z-index: 2; }
+        .planet:active { transform: scale(0.85); }
+        .ring { position: absolute; top: -12px; left: -12px; width: 184px; height: 184px; border-radius: 50%; border: 3px solid rgba(167, 139, 250, 0.3); border-top-color: rgba(236, 72, 153, 0.5); animation: spin 4s linear infinite; pointer-events: none; z-index: 1; }
+        @keyframes spin { from { transform: rotate(0deg) scaleY(0.3); } to { transform: rotate(360deg) scaleY(0.3); } }
+        .energy-section { width: 100%; max-width: 240px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .energy-label { font-size: 10px; color: #818cf8; letter-spacing: 2px; }
+        .energy-bar-bg { width: 100%; height: 12px; background: rgba(30, 27, 75, 0.8); border-radius: 8px; border: 1px solid rgba(124, 58, 237, 0.4); overflow: hidden; }
+        .energy-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #4f46e5, #a78bfa, #ec4899); border-radius: 8px; transition: width 0.3s ease; }
+        .energy-text { font-size: 11px; color: #a5b4fc; }
+        .nav-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+        .nav-btn { padding: 8px 14px; background: rgba(30, 27, 75, 0.8); color: #a5b4fc; border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 18px; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 1px; cursor: pointer; transition: all 0.3s; white-space: nowrap; }
+        .nav-btn.active { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; box-shadow: 0 0 12px rgba(124, 58, 237, 0.5); }
+        .panel { display: none; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+        .panel.active { display: flex; }
+        .upgrades-list { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding: 0 2px; }
+        .upgrade-card { background: rgba(30, 27, 75, 0.7); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; transition: all 0.3s; }
+        .upgrade-icon { font-size: 24px; min-width: 30px; text-align: center; }
+        .upgrade-info { flex: 1; min-width: 0; }
+        .upgrade-name { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+        .upgrade-level { font-size: 9px; color: #a78bfa; margin-top: 1px; }
+        .upgrade-buy { padding: 6px 12px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; border: none; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.3s; min-width: 60px; text-align: center; }
+        .upgrade-buy:disabled { background: rgba(75, 85, 99, 0.5); color: #6b7280; cursor: not-allowed; }
+        .upgrade-buy.max-btn { background: rgba(251, 191, 36, 0.3); color: #fbbf24; cursor: default; }
+        .leaderboard-list { width: 100%; max-width: 340px; max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 2px; }
+        .leaderboard-row { background: rgba(30, 27, 75, 0.7); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; transition: all 0.3s; }
+        .leaderboard-row.top1 { border-color: rgba(251, 191, 36, 0.8); box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
+        .leaderboard-row.top2 { border-color: rgba(192, 192, 192, 0.6); box-shadow: 0 0 15px rgba(192, 192, 192, 0.2); }
+        .leaderboard-row.top3 { border-color: rgba(205, 127, 50, 0.6); box-shadow: 0 0 15px rgba(205, 127, 50, 0.2); }
+        .leaderboard-rank { font-size: 16px; font-weight: 900; min-width: 28px; text-align: center; }
+        .leaderboard-name { flex: 1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c7d2fe; }
+        .leaderboard-balance { font-size: 12px; font-weight: 700; color: #fbbf24; white-space: nowrap; }
+        .particle { position: absolute; pointer-events: none; font-weight: 900; color: #fbbf24; text-shadow: 0 0 8px #f59e0b; animation: fly 1s forwards; z-index: 3; }
+        @keyframes fly { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(1.5); } }
+        #saveBtn { padding: 12px 40px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #e0e7ff; border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 25px; font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 15px rgba(124, 58, 237, 0.4); }
+        #saveBtn:active { box-shadow: 0 0 30px rgba(124, 58, 237, 0.8); transform: translateY(-1px); }
+        .my-rank-section { text-align: center; background: rgba(30, 27, 75, 0.7); border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 16px; padding: 16px; width: 100%; max-width: 260px; }
+        #myRank { font-size: 32px; font-weight: 900; color: #fbbf24; text-shadow: 0 0 15px rgba(251, 191, 36, 0.6); }
+        #myRankBalance { font-size: 12px; color: #a5b4fc; margin-top: 4px; }
+        .save-indicator { position: fixed; top: 10px; right: 10px; background: rgba(34, 197, 94, 0.9); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 700; z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .save-indicator.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    <div class="save-indicator" id="saveIndicator">💾 Сохранено</div>
+    <div class="loading-screen" id="loadingScreen"><div class="loading-logo">ASTROTAP</div><div class="loading-planet"></div><div class="loading-text">Загрузка<span class="loading-dots"></span></div></div>
+    <div class="onboarding-overlay" id="onboardingOverlay">
+        <div class="onboarding-card" id="onboardingCard">
+            <div class="onboarding-content">
+                <div class="onboarding-slide" data-slide="0"><div class="onboarding-icon">🚀</div><div class="onboarding-title">ДОБРО ПОЖАЛОВАТЬ!</div><div class="onboarding-text">Приветствуем, дорогой друг!<br>Добро пожаловать во вселенную <b>AstroTap</b> — здесь ты будешь тапать, качать апгрейды и покорять галактику!</div></div>
+                <div class="onboarding-slide" data-slide="1" style="display:none"><div class="onboarding-icon">📜</div><div class="onboarding-title">ПРАВИЛА</div><div class="onboarding-text">⚡ Тапай по планете — получай астро-очки<br>🛸 Покупай апгрейды и становись сильнее<br>💾 Очки сохраняются автоматически<br>🏆 Соревнуйся в таблице лидеров</div></div>
+                <div class="onboarding-slide" data-slide="2" style="display:none"><div class="onboarding-icon">💡</div><div class="onboarding-title">СОВЕТ</div><div class="onboarding-text">Чем больше тапаешь — тем больше очков!<br>Твой прогресс не пропадёт<br>Удачи, космонавт! 🌟</div></div>
+            </div>
+            <div class="onboarding-dots"><div class="onboarding-dot active" data-dot="0"></div><div class="onboarding-dot" data-dot="1"></div><div class="onboarding-dot" data-dot="2"></div></div>
+            <div class="onboarding-swipe-hint">← СВАЙПНИ / СТРЕЛКИ →</div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="title">A S T R O T A P</div>
+        <a href="https://t.me/AstroTap" target="_blank" class="channel-btn"><div class="channel-icon">✈️</div><div class="channel-text">@AstroTap</div></a>
+        <div class="nav-buttons">
+            <button class="nav-btn active" data-panel="tap">🪐 ТАП</button>
+            <button class="nav-btn" data-panel="upgrades">🛸 АПГРЕЙДЫ</button>
+            <button class="nav-btn" data-panel="leaderboard">🏆 ТОП</button>
+        </div>
+        <div class="panel active" id="panel-tap">
+            <div class="score-section"><div class="score-label">💎 АСТРО-ОЧКИ</div><div id="score">0</div></div>
+            <div class="planet-wrapper"><div class="ring"></div><div class="planet" id="tapBtn">ТАП</div></div>
+            <div class="energy-section"><div class="energy-label">⚡ ЭНЕРГИЯ</div><div class="energy-bar-bg"><div class="energy-bar" id="energyBar"></div></div><div class="energy-text" id="energyText">1000 / 1000</div></div>
+            <button id="saveBtn">🚀 СОХРАНИТЬ</button>
+        </div>
+        <div class="panel" id="panel-upgrades">
+            <div class="score-section"><div class="score-label">💎 БАЛАНС</div><div id="scoreUpgrades">0</div></div>
+            <div class="upgrades-list" id="upgradesList"></div>
+        </div>
+        <div class="panel" id="panel-leaderboard">
+            <div class="my-rank-section"><div class="score-label">🏆 ТВОЙ РАНГ</div><div id="myRank">...</div><div id="myRankBalance"></div></div>
+            <div class="leaderboard-list" id="leaderboardList"><div style="text-align:center;color:#818cf8;padding:20px;">🔄 Загрузка...</div></div>
+        </div>
+    </div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        const starsContainer = document.getElementById('stars');
+        for (let i = 0; i < 100; i++) {
+            const s = document.createElement('div'); s.classList.add('star');
+            const sz = Math.random() * 2 + 1;
+            s.style.width = sz + 'px'; s.style.height = sz + 'px';
+            s.style.left = Math.random() * 100 + '%'; s.style.top = Math.random() * 100 + '%';
+            s.style.setProperty('--duration', (Math.random() * 3 + 2) + 's');
+            s.style.setProperty('--delay', (Math.random() * 3) + 's');
+            starsContainer.appendChild(s);
+        }
+
+        const loadingScreen = document.getElementById('loadingScreen');
+        window.addEventListener('load', () => {
+            setTimeout(() => { loadingScreen.classList.add('hidden'); setTimeout(() => loadingScreen.remove(), 600); }, 1500);
+        });
+
+        const onboardingOverlay = document.getElementById('onboardingOverlay');
+        const onboardingCard = document.getElementById('onboardingCard');
+        const slides = document.querySelectorAll('.onboarding-slide');
+        const dots = document.querySelectorAll('.onboarding-dot');
+        let currentSlide = 0, touchStartX = 0, mouseDown = false, mouseStartX = 0;
+        function showSlide(i) {
+            slides.forEach(s => s.style.display = 'none');
+            dots.forEach(d => d.classList.remove('active'));
+            slides[i].style.display = 'block'; dots[i].classList.add('active');
+            currentSlide = i;
+        }
+        onboardingCard.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
+        onboardingCard.addEventListener('touchend', e => { handleSwipe(touchStartX - e.changedTouches[0].screenX); });
+        onboardingCard.addEventListener('mousedown', e => { mouseDown = true; mouseStartX = e.screenX; });
+        onboardingCard.addEventListener('mouseup', e => { if (mouseDown) { handleSwipe(mouseStartX - e.screenX); mouseDown = false; } });
+        document.addEventListener('keydown', e => {
+            if (onboardingOverlay.classList.contains('hidden')) return;
+            if (e.key === 'ArrowRight' && currentSlide < 2) showSlide(currentSlide + 1);
+            else if (e.key === 'ArrowLeft' && currentSlide > 0) showSlide(currentSlide - 1);
+            else if (e.key === 'Enter' || e.key === 'Escape') { onboardingOverlay.classList.add('hidden'); setTimeout(() => onboardingOverlay.remove(), 400); }
+        });
+        function handleSwipe(diff) { if (Math.abs(diff) > 40) { if (diff > 0 && currentSlide < 2) showSlide(currentSlide + 1); else if (diff < 0 && currentSlide > 0) showSlide(currentSlide - 1); } }
+        onboardingCard.addEventListener('click', e => { if (Math.abs(mouseStartX - e.screenX) > 40) return; if (currentSlide === 2) { onboardingOverlay.classList.add('hidden'); setTimeout(() => onboardingOverlay.remove(), 400); } });
+
+        const API_URL = "https://astrotap-bot.onrender.com";
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const MY_USER_ID = urlParams.get('user_id') || tg.initDataUnsafe?.user?.id || 0;
+        const MY_USERNAME = urlParams.get('username') || tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "unknown";
+
+        const levels = [
+            { lvl: 1, cost: 50, mult: 2, roman: 'I' }, { lvl: 2, cost: 150, mult: 3, roman: 'II' },
+            { lvl: 3, cost: 500, mult: 5, roman: 'III' }, { lvl: 4, cost: 1000, mult: 8, roman: 'IV' },
+            { lvl: 5, cost: 5000, mult: 12, roman: 'V' }, { lvl: 6, cost: 10000, mult: 20, roman: 'VI' },
+            { lvl: 7, cost: 25000, mult: 35, roman: 'VII' }, { lvl: 8, cost: 50000, mult: 60, roman: 'VIII' },
+            { lvl: 9, cost: 100000, mult: 100, roman: 'IX' }, { lvl: 10, cost: 250000, mult: 200, roman: 'X' }
+        ];
+
+        let score = 0, energy = 1000, MAX_ENERGY_VAL = 1000;
+        const REGEN_RATE = 3;
+        let tapPower = 1, critChance = 0;
+        let autoTapActive = false, autoTapInterval = null, autoTapSpeed = 2000;
+        let tapLevel = 0, critLevel = 0, autoTapLevel = 0, energyLevel = 0;
+        let vampLevel = 0, luckLevel = 0, shieldLevel = 0, comboLevel = 0;
+        let lastSavedScore = 0;
+
+        function getCost(lvl) { return lvl >= levels.length ? Infinity : levels[lvl].cost; }
+        function getMult(lvl) { return lvl === 0 ? 1 : levels[lvl - 1].mult; }
+        function getRoman(lvl) { return lvl === 0 ? '—' : levels[lvl - 1].roman; }
+
+        function loadUpgrades() {
+            try {
+                const s = JSON.parse(localStorage.getItem('astrotap_upgrades'));
+                if (s) {
+                    tapLevel = s.tap || 0; critLevel = s.crit || 0; autoTapLevel = s.autotap || 0;
+                    energyLevel = s.energy || 0; vampLevel = s.vamp || 0; luckLevel = s.luck || 0;
+                    shieldLevel = s.shield || 0; comboLevel = s.combo || 0;
+                    if (tapLevel > 0) tapPower = getMult(tapLevel);
+                    if (critLevel > 0) critChance = critLevel * 5;
+                    if (energyLevel > 0) { MAX_ENERGY_VAL = 1000 + energyLevel * 500; energy = MAX_ENERGY_VAL; }
+                    if (autoTapLevel > 0) { autoTapSpeed = Math.max(500, 2000 - autoTapLevel * 150); startAutoTap(autoTapSpeed); }
+                }
+            } catch (e) {}
+        }
+
+        function saveUpgrades() {
+            try { localStorage.setItem('astrotap_upgrades', JSON.stringify({ tap: tapLevel, crit: critLevel, autotap: autoTapLevel, energy: energyLevel, vamp: vampLevel, luck: luckLevel, shield: shieldLevel, combo: comboLevel })); } catch (e) {}
+        }
+
+        const scoreEl = document.getElementById('score'), scoreUpgradesEl = document.getElementById('scoreUpgrades');
+        const tapBtn = document.getElementById('tapBtn');
+        const energyBar = document.getElementById('energyBar'), energyText = document.getElementById('energyText');
+
+        // Скрываем кнопку сохранения
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) saveBtn.style.display = 'none';
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+                if (btn.dataset.panel === 'leaderboard') { loadLeaderboard(); loadMyRank(); }
+            });
+        });
+
+        // ТИХОЕ АВТОСОХРАНЕНИЕ ЧЕРЕЗ API
+        async function autoSave() {
+            if (score !== lastSavedScore) {
+                try {
+                    await fetch(API_URL + "/save", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ user_id: MY_USER_ID, balance: score, username: MY_USERNAME })
+                    });
+                    lastSavedScore = score;
+                } catch(e) {}
+            }
+        }
+
+        setInterval(autoSave, 3000);
+
+        tapBtn.addEventListener('click', (e) => {
+            if (energy >= 1) {
+                let gained = tapPower;
+                if (critChance > 0 && Math.random() * 100 < critChance) gained *= 3;
+                if (comboLevel > 0 && Math.random() * 100 < comboLevel * 3) gained *= 5;
+                if (luckLevel > 0 && Math.random() * 100 < luckLevel) gained += 1000;
+                score += gained;
+                let energyUsed = 1;
+                if (shieldLevel > 0 && Math.random() * 100 < shieldLevel * 5) energyUsed = 0;
+                energy -= energyUsed;
+                if (vampLevel > 0 && Math.random() * 100 < vampLevel * 5) energy = Math.min(MAX_ENERGY_VAL, energy + Math.floor(vampLevel / 2) + 1);
+                updateUI(); spawnParticle(e, gained);
+                scoreEl.classList.add('pulse'); setTimeout(() => scoreEl.classList.remove('pulse'), 150);
+            }
+        });
+
+        function spawnParticle(e, amount) {
+            const rect = tapBtn.getBoundingClientRect(), p = document.createElement('div');
+            p.classList.add('particle'); p.textContent = '+' + amount;
+            p.style.left = (e.clientX - rect.left) + 'px'; p.style.top = (e.clientY - rect.top) + 'px';
+            tapBtn.appendChild(p); setTimeout(() => p.remove(), 1000);
+        }
+
+        function startAutoTap(speed = 2000) {
+            stopAutoTap(); autoTapActive = true;
+            autoTapInterval = setInterval(() => {
+                if (energy >= 1) {
+                    let gained = tapPower;
+                    if (critChance > 0 && Math.random() * 100 < critChance) gained *= 3;
+                    if (comboLevel > 0 && Math.random() * 100 < comboLevel * 3) gained *= 5;
+                    if (luckLevel > 0 && Math.random() * 100 < luckLevel) gained += 1000;
+                    score += gained;
+                    let energyUsed = 1;
+                    if (shieldLevel > 0 && Math.random() * 100 < shieldLevel * 5) energyUsed = 0;
+                    energy -= energyUsed;
+                    if (vampLevel > 0 && Math.random() * 100 < vampLevel * 5) energy = Math.min(MAX_ENERGY_VAL, energy + Math.floor(vampLevel / 2) + 1);
+                    updateUI();
+                }
+            }, speed);
+        }
+
+        function stopAutoTap() { if (autoTapInterval) { clearInterval(autoTapInterval); autoTapInterval = null; } autoTapActive = false; }
+
+        function renderUpgrades() {
+            const list = document.getElementById('upgradesList'); list.innerHTML = '';
+            const items = [
+                { icon: '👆', name: 'СИЛА ТАПА', lvl: tapLevel, max: 10, desc: `Ур. ${getRoman(tapLevel)} | x${getMult(tapLevel)}`, fn: () => { if (score >= getCost(tapLevel) && tapLevel < 10) { score -= getCost(tapLevel); tapLevel++; tapPower = getMult(tapLevel); saveUpgrades(); updateUI(); } } },
+                { icon: '⚡', name: 'КРИТ-ШАНС', lvl: critLevel, max: 10, desc: `Ур. ${getRoman(critLevel)} | ${critLevel * 5}% шанс x3`, fn: () => { if (score >= getCost(critLevel) && critLevel < 10) { score -= getCost(critLevel); critLevel++; critChance = critLevel * 5; saveUpgrades(); updateUI(); } } },
+                { icon: '🤖', name: 'АВТО-ТАП', lvl: autoTapLevel, max: 10, desc: `Ур. ${getRoman(autoTapLevel)} | ${autoTapLevel > 0 ? (Math.max(500, 2000 - autoTapLevel * 150) / 1000).toFixed(1) + 'с' : 'Выкл'}`, fn: () => { if (score >= getCost(autoTapLevel) && autoTapLevel < 10) { score -= getCost(autoTapLevel); autoTapLevel++; autoTapSpeed = Math.max(500, 2000 - autoTapLevel * 150); startAutoTap(autoTapSpeed); saveUpgrades(); updateUI(); } } },
+                { icon: '🔋', name: 'ЭНЕРГО-БЛОК', lvl: energyLevel, max: 10, desc: `Ур. ${getRoman(energyLevel)} | Макс: ${1000 + energyLevel * 500}`, fn: () => { if (score >= getCost(energyLevel) && energyLevel < 10) { score -= getCost(energyLevel); energyLevel++; MAX_ENERGY_VAL = 1000 + energyLevel * 500; energy = MAX_ENERGY_VAL; saveUpgrades(); updateUI(); } } },
+                { icon: '🩸', name: 'ВАМПИРИЗМ', lvl: vampLevel, max: 10, desc: `Ур. ${getRoman(vampLevel)} | ${vampLevel * 5}% шанс +${Math.floor(vampLevel / 2) + 1}⚡`, fn: () => { if (score >= getCost(vampLevel) && vampLevel < 10) { score -= getCost(vampLevel); vampLevel++; saveUpgrades(); updateUI(); } } },
+                { icon: '🍀', name: 'УДАЧА', lvl: luckLevel, max: 10, desc: `Ур. ${getRoman(luckLevel)} | ${luckLevel}% шанс +1000💎`, fn: () => { if (score >= getCost(luckLevel) && luckLevel < 10) { score -= getCost(luckLevel); luckLevel++; saveUpgrades(); updateUI(); } } },
+                { icon: '🛡️', name: 'ЩИТ', lvl: shieldLevel, max: 10, desc: `Ур. ${getRoman(shieldLevel)} | ${shieldLevel * 5}% не тратить ⚡`, fn: () => { if (score >= getCost(shieldLevel) && shieldLevel < 10) { score -= getCost(shieldLevel); shieldLevel++; saveUpgrades(); updateUI(); } } },
+                { icon: '💣', name: 'КОМБО-УДАР', lvl: comboLevel, max: 10, desc: `Ур. ${getRoman(comboLevel)} | ${comboLevel * 3}% шанс x5`, fn: () => { if (score >= getCost(comboLevel) && comboLevel < 10) { score -= getCost(comboLevel); comboLevel++; saveUpgrades(); updateUI(); } } }
+            ];
+            items.forEach(item => {
+                const card = document.createElement('div'); card.classList.add('upgrade-card');
+                const isMax = item.lvl >= item.max;
+                card.innerHTML = `<div class="upgrade-icon">${item.icon}</div><div class="upgrade-info"><div class="upgrade-name">${item.name}</div><div class="upgrade-level">${item.desc}</div></div>`;
+                const btn = document.createElement('button'); btn.classList.add('upgrade-buy');
+                if (isMax) { btn.textContent = 'MAX'; btn.classList.add('max-btn'); btn.disabled = true; }
+                else { btn.textContent = '💎 ' + formatNumber(getCost(item.lvl)); btn.disabled = score < getCost(item.lvl); btn.addEventListener('click', item.fn); }
+                card.appendChild(btn); list.appendChild(card);
+            });
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const resp = await fetch(API_URL + "/leaderboard"); const data = await resp.json();
+                const list = document.getElementById('leaderboardList'); list.innerHTML = '';
+                if (data.leaderboard.length === 0) { list.innerHTML = '<div style="text-align:center;color:#818cf8;padding:20px;">Пока никто не сохранял очки</div>'; return; }
+                data.leaderboard.forEach((user, i) => {
+                    const row = document.createElement('div'); row.classList.add('leaderboard-row');
+                    const rank = i + 1;
+                    if (rank === 1) row.classList.add('top1'); if (rank === 2) row.classList.add('top2'); if (rank === 3) row.classList.add('top3');
+                    row.innerHTML = `<div class="leaderboard-rank">${rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank}</div><div class="leaderboard-name">${escapeHTML(user.username)}</div><div class="leaderboard-balance">💎 ${formatNumber(user.balance)}</div>`;
+                    list.appendChild(row);
+                });
+            } catch (e) { document.getElementById('leaderboardList').innerHTML = '<div style="text-align:center;color:#ef4444;padding:20px;">❌ Ошибка</div>'; }
+        }
+
+        async function loadMyRank() {
+            try {
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) { document.getElementById('myRank').textContent = '?'; return; }
+                const resp = await fetch(API_URL + "/rank/" + userId); const data = await resp.json();
+                document.getElementById('myRank').textContent = data.rank ? '#' + data.rank : '—';
+                document.getElementById('myRankBalance').textContent = data.rank ? '💎 ' + formatNumber(data.balance) : 'Ещё не сохранял';
+            } catch (e) { document.getElementById('myRank').textContent = '?'; }
+        }
+
+        function escapeHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatNumber(n) { if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'; if (n >= 1000) return (n / 1000).toFixed(1) + 'K'; return n.toString(); }
+
+        function updateUI() {
+            scoreEl.textContent = formatNumber(score); scoreUpgradesEl.textContent = formatNumber(score);
+            energyBar.style.width = (energy / MAX_ENERGY_VAL) * 100 + '%';
+            energyText.textContent = `${Math.floor(energy)} / ${MAX_ENERGY_VAL}`;
+            renderUpgrades();
+        }
+
+        setInterval(() => { if (energy < MAX_ENERGY_VAL) { energy = Math.min(MAX_ENERGY_VAL, energy + REGEN_RATE); updateUI(); } }, 1000);
+
+        async function loadBalance() {
+            try {
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) return;
+                const resp = await fetch(API_URL + "/rank/" + userId); const data = await resp.json();
+                if (data.balance && data.balance > 0) { score = data.balance; lastSavedScore = data.balance; updateUI(); }
+            } catch (e) {}
+        }
+
+        loadUpgrades(); renderUpgrades(); updateUI(); loadBalance();
+    </script>
+</body>
+</html>
