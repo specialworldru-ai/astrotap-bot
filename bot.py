@@ -32,6 +32,23 @@ async def init_db():
     async with aiosqlite.connect("users.db") as db:
         await db.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, balance INTEGER DEFAULT 0, username TEXT, upgrades_json TEXT DEFAULT '{}', ref_id INTEGER DEFAULT 0, is_premium INTEGER DEFAULT 0, ref_count INTEGER DEFAULT 0, ref_income INTEGER DEFAULT 0)")
         await db.execute("CREATE TABLE IF NOT EXISTS bans (user_id INTEGER PRIMARY KEY, reason TEXT, banned_at TEXT)")
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                link TEXT DEFAULT '',
+                reward INTEGER DEFAULT 0,
+                type TEXT DEFAULT '1',
+                goal INTEGER DEFAULT 0
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS task_completions (
+                user_id INTEGER,
+                task_id INTEGER,
+                PRIMARY KEY (user_id, task_id)
+            )
+        """)
         for col in ['upgrades_json', 'ref_id', 'is_premium', 'ref_count', 'ref_income']:
             try: await db.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT '0'")
             except: pass
@@ -126,9 +143,99 @@ async def admin_panel(msg: types.Message):
         "👤 `/user ID` — информация об игроке\n"
         "🚫 `/ban ID причина` — забанить\n"
         "✅ `/unban ID` — разбанить\n"
-        "📋 `/banlist` — список банов",
+        "📋 `/banlist` — список банов\n"
+        "🎁 `/add` — добавить задание\n"
+        "📋 `/tasks` — список заданий\n"
+        "🗑 `/deltask ID` — удалить задание",
         parse_mode="Markdown"
     )
+
+# ============ ЗАДАНИЯ ============
+@dp.message(Command("add"))
+async def add_task_start(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    awaiting_broadcast[msg.from_user.id] = {"step": "name"}
+    await msg.answer("📝 *Укажите название задания*\nНапример: Перейди по ссылке и получи 5000 монет", parse_mode="Markdown")
+
+@dp.message(Command("tasks"))
+async def tasks_list(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT id, name, reward, type, goal FROM tasks")
+        rows = await cursor.fetchall()
+    if not rows: await msg.answer("Нет заданий."); return
+    types_text = {"1": "Ссылка", "2": "Тапы", "3": "Баланс"}
+    text = "📋 *ЗАДАНИЯ:*\n\n"
+    for r in rows:
+        text += f"🆔 {r[0]} | {r[1]} | {types_text.get(r[3],'?')} | 💎 {r[2]}\n"
+    text += "\nУдалить: `/deltask ID`"
+    await msg.answer(text, parse_mode="Markdown")
+
+@dp.message(Command("deltask"))
+async def del_task(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    parts = msg.text.split()
+    if len(parts) < 2: await msg.answer("/deltask ID"); return
+    try: task_id = int(parts[1])
+    except: return
+    async with aiosqlite.connect("users.db") as db:
+        await db.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        await db.execute("DELETE FROM task_completions WHERE task_id = ?", (task_id,))
+        await db.commit()
+    await msg.answer(f"✅ Задание {task_id} удалено.")
+
+@dp.message(lambda msg: msg.from_user.id in awaiting_broadcast and isinstance(awaiting_broadcast.get(msg.from_user.id), dict))
+async def task_steps(msg: types.Message):
+    if msg.text.startswith('/'): return
+    data = awaiting_broadcast[msg.from_user.id]
+    step = data.get("step")
+    
+    if step == "name":
+        data["name"] = msg.text
+        data["step"] = "type"
+        await msg.answer("📋 *Тип задания:*\n\n1️⃣ — Перейти по ссылке\n2️⃣ — Натапать N раз\n3️⃣ — Накопить баланс\n\nОтправь цифру 1, 2 или 3", parse_mode="Markdown")
+    elif step == "type":
+        t = msg.text.strip()
+        if t not in ["1", "2", "3"]:
+            await msg.answer("❌ Отправь 1, 2 или 3")
+            return
+        data["type"] = t
+        if t == "1":
+            data["step"] = "link"
+            await msg.answer("🔗 *Укажите ссылку*\nИли напишите `нет` если ссылка не нужна", parse_mode="Markdown")
+        elif t == "2":
+            data["step"] = "tap_count"
+            await msg.answer("👆 *Сколько тапов нужно сделать?*\nНапример: 5000", parse_mode="Markdown")
+        else:
+            data["step"] = "balance_goal"
+            await msg.answer("💎 *Сколько очков нужно накопить?*\nНапример: 50000", parse_mode="Markdown")
+    elif step == "link":
+        if msg.text.lower() == "нет": data["link"] = ""
+        else: data["link"] = msg.text
+        data["step"] = "reward"
+        await msg.answer("💎 *Укажите награду (число)*\nНапример: 5000", parse_mode="Markdown")
+    elif step in ["tap_count", "balance_goal"]:
+        try:
+            data["goal"] = int(msg.text)
+            data["link"] = ""
+            data["step"] = "reward"
+            await msg.answer("💎 *Укажите награду (число)*\nНапример: 5000", parse_mode="Markdown")
+        except: await msg.answer("❌ Введите число!")
+    elif step == "reward":
+        try:
+            reward = int(msg.text)
+            task_type = data.get("type", "1")
+            link = data.get("link", "")
+            goal = data.get("goal", 0)
+            async with aiosqlite.connect("users.db") as db:
+                await db.execute("INSERT INTO tasks (name, link, reward, type, goal) VALUES (?, ?, ?, ?, ?)", 
+                    (data["name"], link, reward, task_type, goal))
+                await db.commit()
+            del awaiting_broadcast[msg.from_user.id]
+            types_text = {"1": "Ссылка", "2": "Тапы", "3": "Баланс"}
+            goal_text = f" | Цель: {goal}" if goal else ""
+            await msg.answer(f"✅ *Задание добавлено!*\n\n📝 {data['name']}\n📋 Тип: {types_text[task_type]}{goal_text}\n💎 {reward} монет", parse_mode="Markdown")
+        except: await msg.answer("❌ Введите число!")
 
 @dp.message(Command("broadcast"))
 async def broadcast_start(msg: types.Message):
@@ -138,9 +245,15 @@ async def broadcast_start(msg: types.Message):
 
 @dp.message(Command("cancel"))
 async def cancel_cmd(msg: types.Message):
-    if msg.from_user.id in awaiting_broadcast: del awaiting_broadcast[msg.from_user.id]; await msg.answer("❌ Отменено.")
+    if msg.from_user.id in awaiting_broadcast: 
+        if isinstance(awaiting_broadcast[msg.from_user.id], dict):
+            del awaiting_broadcast[msg.from_user.id]
+            await msg.answer("❌ Создание задания отменено.")
+        else:
+            del awaiting_broadcast[msg.from_user.id]
+            await msg.answer("❌ Отменено.")
 
-@dp.message(lambda msg: msg.from_user.id in awaiting_broadcast)
+@dp.message(lambda msg: msg.from_user.id in awaiting_broadcast and not isinstance(awaiting_broadcast.get(msg.from_user.id), dict))
 async def broadcast_send(msg: types.Message):
     if msg.text.startswith('/'): return
     del awaiting_broadcast[msg.from_user.id]
@@ -266,6 +379,44 @@ async def get_rank(user_id: int):
             cursor = await db.execute("SELECT COUNT(*) FROM users WHERE balance > ?", (row[0],)); rank_row = await cursor.fetchone()
             return {"rank": rank_row[0] + 1, "balance": row[0], "upgrades": json.loads(row[1]) if row[1] else {}, "ref_count": row[2] or 0, "ref_income": row[3] or 0}
         return {"rank": None, "balance": 0, "upgrades": {}, "ref_count": 0, "ref_income": 0}
+
+# API для заданий
+@api.get("/tasks/{user_id}")
+async def get_tasks(user_id: int):
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT id, name, link, reward, type, goal FROM tasks")
+        tasks = await cursor.fetchall()
+        cursor = await db.execute("SELECT task_id FROM task_completions WHERE user_id = ?", (user_id,))
+        completed = [r[0] for r in await cursor.fetchall()]
+        cursor = await db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        user_row = await cursor.fetchone()
+        user_balance = user_row[0] if user_row else 0
+    
+    result = []
+    for t in tasks:
+        result.append({
+            "id": t[0], "name": t[1], "link": t[2], "reward": t[3],
+            "type": t[4] or "1", "goal": t[5] or 0,
+            "completed": t[0] in completed
+        })
+    return {"tasks": result, "user_balance": user_balance}
+
+@api.post("/complete_task")
+async def complete_task(request: Request):
+    try:
+        data = await request.json()
+        user_id = data.get("user_id")
+        task_id = data.get("task_id")
+        async with aiosqlite.connect("users.db") as db:
+            cursor = await db.execute("SELECT reward FROM tasks WHERE id = ?", (task_id,))
+            task = await cursor.fetchone()
+            if task:
+                await db.execute("INSERT OR IGNORE INTO task_completions VALUES (?, ?)", (user_id, task_id))
+                await db.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (task[0], user_id))
+                await db.commit()
+                return {"status": "ok", "reward": task[0]}
+    except: pass
+    return {"status": "error"}
 
 async def main():
     global banned_users
