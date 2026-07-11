@@ -13,7 +13,7 @@ import aiosqlite
 TOKEN = "8531331166:AAFjqwWfhyUK8ATb42Bz81Wp1FfBf9bvgpc"
 WEBAPP_URL = "https://specialworldru-ai.github.io/astrotap-bot/tap.html"
 ADMIN_ID = 8683532059
-BOT_USERNAME = "AstroTapBot"  # ← ЗАМЕНИ
+BOT_USERNAME = "твой_бот"  # ← ЗАМЕНИ
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -22,17 +22,16 @@ api = FastAPI()
 api.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 awaiting_broadcast = {}
+banned_users = {}
 
-# Баны
-try:
-    with open("bans.json", "r") as f:
-        banned_users = json.load(f)
-except:
-    banned_users = {}
-
-def save_bans():
-    with open("bans.json", "w") as f:
-        json.dump(banned_users, f)
+async def load_bans():
+    banned = {}
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT user_id, reason FROM bans")
+        rows = await cursor.fetchall()
+        for r in rows:
+            banned[str(r[0])] = r[1]
+    return banned
 
 async def init_db():
     async with aiosqlite.connect("users.db") as db:
@@ -255,7 +254,7 @@ async def user_cmd(msg: types.Message):
         await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}\n👥 Реф: {row[2]}\n💰 Доход: {row[3]}\n🚫 Бан: {'Да' if is_banned else 'Нет'}")
     else: await msg.answer("❌ Не найден")
 
-# ============ БАНЫ ============
+# ============ БАНЫ (в базе данных) ============
 @dp.message(Command("ban"))
 async def ban_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
@@ -264,8 +263,8 @@ async def ban_cmd(msg: types.Message):
     try: target_id = int(parts[1]); reason = parts[2]
     except: await msg.answer("❌ /ban 123456 спам"); return
     
+    global banned_users
     banned_users[str(target_id)] = reason
-    save_bans()
     async with aiosqlite.connect("users.db") as db:
         await db.execute("INSERT OR REPLACE INTO bans (user_id, reason, banned_at) VALUES (?, ?, datetime('now'))", (target_id, reason))
         await db.commit()
@@ -279,10 +278,10 @@ async def unban_cmd(msg: types.Message):
     parts = msg.text.split(maxsplit=2)
     if len(parts) < 2: await msg.answer("/unban ID [сообщение]"); return
     try: target_id = int(parts[1]); message = parts[2] if len(parts) > 2 else "Вы были разбанены в боте."
-    except: await msg.answer("❌ /unban 123456 Добро пожаловать!"); return
+    except: await msg.answer("❌ /unban 123456"); return
     
+    global banned_users
     banned_users.pop(str(target_id), None)
-    save_bans()
     async with aiosqlite.connect("users.db") as db:
         await db.execute("DELETE FROM bans WHERE user_id = ?", (target_id,))
         await db.commit()
@@ -293,6 +292,7 @@ async def unban_cmd(msg: types.Message):
 @dp.message(Command("banlist"))
 async def banlist_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
+    global banned_users
     if not banned_users:
         await msg.answer("📋 Список банов пуст.")
         return
@@ -348,7 +348,9 @@ async def get_rank(user_id: int):
         return {"rank": None, "balance": 0, "upgrades": {}, "ref_count": 0, "ref_income": 0}
 
 async def main():
+    global banned_users
     await init_db()
+    banned_users = await load_bans()
     asyncio.create_task(dp.start_polling(bot))
     config = uvicorn.Config(api, host="0.0.0.0", port=8000, log_level="info")
     server = uvicorn.Server(config)
