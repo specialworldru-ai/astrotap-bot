@@ -69,7 +69,20 @@ async def start_cmd(msg: types.Message):
         await db.commit()
     webapp_url = f"{WEBAPP_URL}?user_id={user_id}&username={username}"
     kb = types.ReplyKeyboardMarkup(keyboard=[[types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=webapp_url)), types.KeyboardButton(text="👥 РЕФЕРАЛЫ")]], resize_keyboard=True)
-    await msg.answer("🚀 *ДОБРО ПОЖАЛОВАТЬ В ASTROTAP!*\n\n• Тапай — очки сохраняются автоматически!\n• 8 апгрейдов до 10 уровней\n• Рефералы\n• Таблица лидеров\n\nЖми кнопку! 👇", reply_markup=kb, parse_mode="Markdown")
+    await msg.answer(
+        "🚀 *ДОБРО ПОЖАЛОВАТЬ В ASTROTAP!*\n\n"
+        "Привет, космонавт! Ты попал в первую космическую тапалку в Telegram.\n\n"
+        "🪐 *Что тебя ждёт:*\n"
+        "• Тапай по планете — очки сохраняются *автоматически*!\n"
+        "• Прокачивай 8 апгрейдов до 10 уровней\n"
+        "• Соревнуйся в таблице лидеров\n"
+        "• Приглашай друзей — получай бонусы\n"
+        "• Вампиризм, щит, комбо, удача\n\n"
+        "💡 *Совет:* Нажми 🔄 Обновить баланс после начислений!\n\n"
+        "📢 Канал: @AstroTap\n\n"
+        "Жми кнопку и погнали! 👇",
+        reply_markup=kb, parse_mode="Markdown"
+    )
 
 @dp.message(lambda msg: msg.text == "👥 РЕФЕРАЛЫ")
 async def ref_info(msg: types.Message):
@@ -104,7 +117,18 @@ async def web_app_data(msg: types.Message):
 @dp.message(Command("admin"))
 async def admin_panel(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: await msg.answer("🚫 Нет доступа."); return
-    await msg.answer("🛸 *АДМИН-ПАНЕЛЬ*\n📢 `/broadcast`\n📊 `/stats`\n💎 `/give ID сумма`\n💸 `/removebal ID сумма`\n👤 `/user ID`\n🚫 `/ban ID причина`\n✅ `/unban ID`\n📋 `/banlist`", parse_mode="Markdown")
+    await msg.answer(
+        "🛸 *АДМИН-ПАНЕЛЬ ASTROTAP*\n\n"
+        "📢 `/broadcast` — рассылка всем игрокам\n"
+        "📊 `/stats` — статистика бота\n"
+        "💎 `/give ID сумма` — начислить очки\n"
+        "💸 `/removebal ID сумма` — убрать баланс\n"
+        "👤 `/user ID` — информация об игроке\n"
+        "🚫 `/ban ID причина` — забанить\n"
+        "✅ `/unban ID` — разбанить\n"
+        "📋 `/banlist` — список банов",
+        parse_mode="Markdown"
+    )
 
 @dp.message(Command("broadcast"))
 async def broadcast_start(msg: types.Message):
