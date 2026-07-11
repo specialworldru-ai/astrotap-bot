@@ -13,7 +13,7 @@ import aiosqlite
 TOKEN = "8531331166:AAFjqwWfhyUK8ATb42Bz81Wp1FfBf9bvgpc"
 WEBAPP_URL = "https://specialworldru-ai.github.io/astrotap-bot/tap.html"
 ADMIN_ID = 8683532059
-BOT_USERNAME = "твой_бот"
+BOT_USERNAME = "AstroTapBot"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -90,7 +90,22 @@ async def start_cmd(msg: types.Message):
     
     webapp_url = f"{WEBAPP_URL}?user_id={user_id}&username={username}"
     kb = types.ReplyKeyboardMarkup(keyboard=[[types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=webapp_url)), types.KeyboardButton(text="👥 РЕФЕРАЛЫ")]], resize_keyboard=True)
-    await msg.answer("🚀 *ДОБРО ПОЖАЛОВАТЬ В ASTROTAP!*\n\n• Тапай — очки сохраняются автоматически!\n• 8 апгрейдов до 10 уровней\n• Таблица лидеров\n• Рефералы\n• Титулы и награды\n\nЖми кнопку! 👇", reply_markup=kb, parse_mode="Markdown")
+    await msg.answer(
+        "🚀 *ДОБРО ПОЖАЛОВАТЬ В ASTROTAP!*\n\n"
+        "Привет, космонавт! Ты попал в первую космическую тапалку в Telegram.\n\n"
+        "🪐 *Что тебя ждёт:*\n"
+        "• Тапай по планете — очки сохраняются *автоматически*!\n"
+        "• Прокачивай 8 апгрейдов до 10 уровней\n"
+        "• Соревнуйся в таблице лидеров\n"
+        "• Приглашай друзей — получай бонусы\n"
+        "• Вампиризм, щит, комбо, удача\n"
+        "• Зарабатывай титулы и награды!\n\n"
+        "💡 *Совет:* Нажми 🔄 Обновить баланс после начислений!\n\n"
+        "📢 Канал: @AstroTap\n\n"
+        "Жми кнопку и погнали! 👇",
+        reply_markup=kb,
+        parse_mode="Markdown"
+    )
 
 @dp.message(lambda msg: msg.text == "👥 РЕФЕРАЛЫ")
 async def ref_info(msg: types.Message):
@@ -101,8 +116,20 @@ async def ref_info(msg: types.Message):
     if row:
         ref_count, ref_income, is_premium = row
         bonus = 10000 if is_premium else 5000
-        await msg.answer(f"👥 *РЕФЕРАЛЫ*\n🔗 `{get_ref_link(user_id)}`\n💎 Бонус: {bonus}\n💸 Комиссия: {10 if is_premium else 5}%\n👥 Друзей: {ref_count}\n💰 Доход: {ref_income}", parse_mode="Markdown")
-    else: await msg.answer("Сначала /start")
+        commission = 10 if is_premium else 5
+        await msg.answer(
+            f"👥 *РЕФЕРАЛЬНАЯ ПРОГРАММА*\n\n"
+            f"🔗 Твоя ссылка:\n`{get_ref_link(user_id)}`\n\n"
+            f"💎 Бонус за друга: {bonus} очков\n"
+            f"💸 Комиссия: {commission}% от тапов\n\n"
+            f"📊 *Статистика:*\n"
+            f"👥 Приглашено: {ref_count} чел.\n"
+            f"💰 Доход: {ref_income} очков\n\n"
+            f"{'🌟 У тебя Telegram Premium — бонусы x2!' if is_premium else '💡 Купи Telegram Premium — бонусы x2!'}",
+            parse_mode="Markdown"
+        )
+    else:
+        await msg.answer("Сначала нажми /start")
 
 @dp.message(lambda msg: msg.web_app_data is not None)
 async def web_app_data(msg: types.Message):
@@ -132,56 +159,35 @@ async def web_app_data(msg: types.Message):
             await db.commit()
     except: pass
 
-# ============ АДМИНКА (сокращённо) ============
+# ============ АДМИН-ПАНЕЛЬ ============
 @dp.message(Command("admin"))
 async def admin_panel(msg: types.Message):
-    if msg.from_user.id != ADMIN_ID: return
-    await msg.answer("🛸 *АДМИН-ПАНЕЛЬ*\n/broadcast\n/stats\n/give ID сумма\n/removebal ID сумма\n/user ID\n/ban ID причина\n/unban ID\n/banlist\n/toptitles — выдать титулы топ-3\n/givetitle ID титул", parse_mode="Markdown")
+    if msg.from_user.id != ADMIN_ID: await msg.answer("🚫 Нет доступа."); return
+    await msg.answer(
+        "🛸 *АДМИН-ПАНЕЛЬ ASTROTAP*\n\n"
+        "📢 `/broadcast` — рассылка всем игрокам\n"
+        "📊 `/stats` — статистика бота\n"
+        "💎 `/give ID сумма` — начислить очки\n"
+        "💸 `/removebal ID сумма` — убрать баланс\n"
+        "👤 `/user ID` — информация об игроке\n"
+        "🚫 `/ban ID причина` — забанить\n"
+        "✅ `/unban ID` — разбанить\n"
+        "📋 `/banlist` — список банов\n"
+        "🏆 `/top` — показать топ-3\n"
+        "🎖 `/topgift ID Титул Место` — выдать титул\n"
+        "🎖 `/givetitle ID Титул` — выдать любой титул",
+        parse_mode="Markdown"
+    )
 
-@dp.message(Command("toptitles"))
-async def top_titles(msg: types.Message):
-    if msg.from_user.id != ADMIN_ID: return
-    titles = ["👑 Повелитель", "🌟 Амбассадор", "💫 Сеньор"]
-    async with aiosqlite.connect("users.db") as db:
-        cursor = await db.execute("SELECT user_id, username FROM users ORDER BY balance DESC LIMIT 3")
-        rows = await cursor.fetchall()
-    
-    for i, (uid, uname) in enumerate(rows):
-        async with aiosqlite.connect("users.db") as db:
-            cursor = await db.execute("SELECT titles_json FROM users WHERE user_id = ?", (uid,))
-            row = await cursor.fetchone()
-            titles_list = json.loads(row[0]) if row and row[0] else []
-            if titles[i] not in titles_list:
-                titles_list.append(titles[i])
-            await db.execute("UPDATE users SET titles_json = ? WHERE user_id = ?", (json.dumps(titles_list), uid))
-            await db.commit()
-        try: await bot.send_message(uid, f"🎉 Ты получил титул *{titles[i]}*!\nЗайди в профиль и установи его!", parse_mode="Markdown")
-        except: pass
-    
-    await msg.answer("✅ Титулы выданы топ-3!")
-
-@dp.message(Command("givetitle"))
-async def give_title_cmd(msg: types.Message):
-    if msg.from_user.id != ADMIN_ID: return
-    parts = msg.text.split(maxsplit=2)
-    if len(parts) < 3: await msg.answer("/givetitle ID титул"); return
-    try: target_id = int(parts[1]); title = parts[2]
-    except: await msg.answer("❌ /givetitle 123 👑 Король"); return
-    
-    async with aiosqlite.connect("users.db") as db:
-        cursor = await db.execute("SELECT titles_json FROM users WHERE user_id = ?", (target_id,))
-        row = await cursor.fetchone()
-        titles_list = json.loads(row[0]) if row and row[0] else []
-        if title not in titles_list: titles_list.append(title)
-        await db.execute("UPDATE users SET titles_json = ? WHERE user_id = ?", (json.dumps(titles_list), target_id))
-        await db.commit()
-    await msg.answer(f"✅ Титул '{title}' выдан {target_id}")
+@dp.message(Command("myid"))
+async def myid_cmd(msg: types.Message):
+    await msg.answer(f"🆔 Твой ID: `{msg.from_user.id}`", parse_mode="Markdown")
 
 @dp.message(Command("broadcast"))
 async def broadcast_start(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
     awaiting_broadcast[msg.from_user.id] = True
-    await msg.answer("📢 Отправь текст.")
+    await msg.answer("📢 Отправь текст для рассылки.\n/cancel — отмена")
 
 @dp.message(Command("cancel"))
 async def cancel_cmd(msg: types.Message):
@@ -195,7 +201,7 @@ async def broadcast_send(msg: types.Message):
         cursor = await db.execute("SELECT user_id FROM users"); users = await cursor.fetchall()
     sent, failed = 0, 0
     for (user_id,) in users:
-        try: await bot.send_message(user_id, f"📢 *ASTROTAP*\n\n{msg.text}", parse_mode="Markdown"); sent += 1; await asyncio.sleep(0.05)
+        try: await bot.send_message(user_id, f"📢 *ОБНОВЛЕНИЕ ASTROTAP*\n\n{msg.text}", parse_mode="Markdown"); sent += 1; await asyncio.sleep(0.05)
         except: failed += 1
     await msg.answer(f"✅ 📬 {sent} | ❌ {failed}")
 
@@ -204,7 +210,7 @@ async def stats_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
     async with aiosqlite.connect("users.db") as db:
         cursor = await db.execute("SELECT COUNT(*), SUM(balance), MAX(balance), SUM(ref_count) FROM users"); row = await cursor.fetchone()
-    await msg.answer(f"📊 *СТАТИСТИКА*\n👥 {row[0]}\n💎 {row[1] or 0}\n🏆 {row[2] or 0}\n👥 Реф: {row[3] or 0}\n🚫 Банов: {len(banned_users)}", parse_mode="Markdown")
+    await msg.answer(f"📊 *СТАТИСТИКА*\n👥 Игроков: {row[0]}\n💎 Очков: {row[1] or 0}\n🏆 Рекорд: {row[2] or 0}\n👥 Реф: {row[3] or 0}\n🚫 Банов: {len(banned_users)}", parse_mode="Markdown")
 
 @dp.message(Command("give"))
 async def give_cmd(msg: types.Message):
@@ -218,6 +224,8 @@ async def give_cmd(msg: types.Message):
         await db.execute("INSERT OR IGNORE INTO users (user_id, balance, username) VALUES (?, ?, ?)", (target_id, amount, "admin_gift"))
         await db.commit()
     await msg.answer(f"✅ +{amount} 💎 → {target_id}")
+    try: await bot.send_message(target_id, f"🎁 Админ начислил {amount} 💎! Нажми 🔄 Обновить в апке!")
+    except: pass
 
 @dp.message(Command("removebal"))
 async def removebal_cmd(msg: types.Message):
@@ -239,9 +247,90 @@ async def user_cmd(msg: types.Message):
     try: target_id = int(parts[1])
     except: await msg.answer("❌ ID"); return
     async with aiosqlite.connect("users.db") as db:
-        cursor = await db.execute("SELECT balance, username, ref_count, ref_income FROM users WHERE user_id = ?", (target_id,)); row = await cursor.fetchone()
-    if row: await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}\n👥 {row[2]}\n💰 {row[3]}\n🚫 {'Да' if str(target_id) in banned_users else 'Нет'}")
+        cursor = await db.execute("SELECT balance, username, ref_count, ref_income, titles_json FROM users WHERE user_id = ?", (target_id,)); row = await cursor.fetchone()
+    if row:
+        titles = json.loads(row[4]) if row[4] else []
+        await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}\n👥 Реф: {row[2]}\n💰 Доход: {row[3]}\n🎖 Титулы: {', '.join(titles) if titles else 'Нет'}\n🚫 Бан: {'Да' if str(target_id) in banned_users else 'Нет'}")
     else: await msg.answer("❌ Не найден")
+
+# ============ ТОП ============
+@dp.message(Command("top"))
+async def top_cmd(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT user_id, username, balance FROM users ORDER BY balance DESC LIMIT 3")
+        rows = await cursor.fetchall()
+    
+    if len(rows) < 3:
+        await msg.answer("Недостаточно игроков.")
+        return
+    
+    medals = ["🥇", "🥈", "🥉"]
+    titles = ["Повелитель", "Амбассадор", "Сеньор"]
+    
+    text = "🏆 *ТОП-3 ИГРОКОВ:*\n\n"
+    for i, (uid, uname, bal) in enumerate(rows):
+        text += f"{medals[i]} *{i+1} место* — {uname}\n🆔 `{uid}`\n💎 {bal} очков\n🎖 Титул: {titles[i]}\n\n"
+    text += "Используй `/topgift ID Титул Место` чтобы выдать награду"
+    
+    await msg.answer(text, parse_mode="Markdown")
+
+@dp.message(Command("topgift"))
+async def topgift_cmd(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    parts = msg.text.split(maxsplit=3)
+    if len(parts) < 4: await msg.answer("/topgift ID Титул Место\nПример: /topgift 123456 Повелитель 1"); return
+    try:
+        target_id = int(parts[1])
+        title = parts[2]
+        place = parts[3]
+    except: await msg.answer("❌ /topgift 123456 Повелитель 1"); return
+    
+    valid_titles = ["Повелитель", "Амбассадор", "Сеньор"]
+    if title not in valid_titles:
+        await msg.answer(f"❌ Доступные титулы: {', '.join(valid_titles)}")
+        return
+    
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT titles_json FROM users WHERE user_id = ?", (target_id,))
+        row = await cursor.fetchone()
+        titles_list = json.loads(row[0]) if row and row[0] else []
+        if title not in titles_list: titles_list.append(title)
+        await db.execute("UPDATE users SET titles_json = ? WHERE user_id = ?", (json.dumps(titles_list), target_id))
+        await db.commit()
+    
+    await msg.answer(f"✅ Титул *{title}* выдан {target_id} за {place} место!", parse_mode="Markdown")
+    
+    place_text = {1: "1 место", 2: "2 место", 3: "3 место"}
+    try:
+        await bot.send_message(
+            target_id,
+            f"🎉 *ПОЗДРАВЛЯЕМ!*\n\n"
+            f"Вам был выдан титул *{title}* за *{place}* место в топе AstroTap!\n\n"
+            f"🏆 Зайди в профиль и установи его!\n"
+            f"🚀 Продолжай тапать и покорять галактику!",
+            parse_mode="Markdown"
+        )
+    except: pass
+
+@dp.message(Command("givetitle"))
+async def give_title_cmd(msg: types.Message):
+    if msg.from_user.id != ADMIN_ID: return
+    parts = msg.text.split(maxsplit=2)
+    if len(parts) < 3: await msg.answer("/givetitle ID Титул"); return
+    try: target_id = int(parts[1]); title = parts[2]
+    except: await msg.answer("❌ /givetitle 123 👑 Король"); return
+    
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT titles_json FROM users WHERE user_id = ?", (target_id,))
+        row = await cursor.fetchone()
+        titles_list = json.loads(row[0]) if row and row[0] else []
+        if title not in titles_list: titles_list.append(title)
+        await db.execute("UPDATE users SET titles_json = ? WHERE user_id = ?", (json.dumps(titles_list), target_id))
+        await db.commit()
+    await msg.answer(f"✅ Титул '{title}' выдан {target_id}")
+    try: await bot.send_message(target_id, f"🎉 Вы получили титул *{title}*! Зайди в профиль!", parse_mode="Markdown")
+    except: pass
 
 # ============ БАНЫ ============
 @dp.message(Command("ban"))
@@ -256,6 +345,8 @@ async def ban_cmd(msg: types.Message):
     async with aiosqlite.connect("users.db") as db:
         await db.execute("INSERT OR REPLACE INTO bans VALUES (?, ?, datetime('now'))", (target_id, reason)); await db.commit()
     await msg.answer(f"🚫 {target_id} забанен.")
+    try: await bot.send_message(target_id, f"🚫 *ВЫ ЗАБАНЕНЫ*\n\nПричина: {reason}\n\nОбратитесь в поддержку: @z9hielove", parse_mode="Markdown")
+    except: pass
 
 @dp.message(Command("unban"))
 async def unban_cmd(msg: types.Message):
@@ -273,8 +364,8 @@ async def unban_cmd(msg: types.Message):
 @dp.message(Command("banlist"))
 async def banlist_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
-    if not banned_users: await msg.answer("Пусто."); return
-    text = "🚫 *БАНЫ:*\n\n" + "\n".join([f"🆔 {uid} | {r}" for uid, r in banned_users.items()])
+    if not banned_users: await msg.answer("📋 Список банов пуст."); return
+    text = "🚫 *ЗАБАНЕНЫ:*\n\n" + "\n".join([f"🆔 {uid} | {r}" for uid, r in banned_users.items()])
     await msg.answer(text, parse_mode="Markdown")
 
 # ============ API ============
@@ -326,7 +417,7 @@ async def main():
     global banned_users
     await init_db()
     banned_users = await load_bans()
-    # Выдаём титулы админу для теста
+    # Выдаём титулы админу
     async with aiosqlite.connect("users.db") as db:
         await db.execute("UPDATE users SET titles_json = ? WHERE user_id = ?", (json.dumps(["👑 Повелитель", "🌟 Амбассадор", "💫 Сеньор"]), ADMIN_ID))
         await db.commit()

@@ -244,17 +244,24 @@
             try {
                 const resp = await fetch(API_URL + "/rank/" + MY_USER_ID); const data = await resp.json();
                 myTitles = data.titles || []; activeTitle = data.active_title || "";
-                document.getElementById('profileName').textContent = MY_USERNAME;
-                document.getElementById('profileUsername').textContent = "@" + (tg.initDataUnsafe?.user?.username || MY_USERNAME);
+                const realUsername = tg.initDataUnsafe?.user?.username || MY_USERNAME;
+                const firstName = tg.initDataUnsafe?.user?.first_name || MY_USERNAME;
+                document.getElementById('profileName').textContent = firstName;
+                document.getElementById('profileUsername').textContent = "@" + realUsername;
                 document.getElementById('profileActiveTitle').textContent = activeTitle || "Без титула";
-                document.getElementById('profileAvatar').textContent = (MY_USERNAME || "A")[0].toUpperCase();
+                const avatar = document.getElementById('profileAvatar');
+                if (tg.initDataUnsafe?.user?.photo_url) {
+                    avatar.innerHTML = `<img src="${tg.initDataUnsafe.user.photo_url}" style="width:60px;height:60px;border-radius:50%;">`;
+                } else {
+                    avatar.textContent = (firstName || "A")[0].toUpperCase();
+                }
                 profileTitleBtn.style.display = myTitles.length > 0 ? 'inline-block' : 'none';
             } catch(e) {}
         }
 
         function renderTitles() {
             const list = document.getElementById('titlesList'); list.innerHTML = '';
-            if (myTitles.length === 0) { list.innerHTML = '<div style="color:#818cf8;padding:20px;">У вас нет титулов</div>'; return; }
+            if (myTitles.length === 0) { list.innerHTML = '<div style="color:#818cf8;padding:20px;text-align:center;">У вас нет титулов</div>'; return; }
             myTitles.forEach(title => {
                 const item = document.createElement('div'); item.classList.add('title-item');
                 if (title === activeTitle) item.classList.add('active-title');
@@ -262,8 +269,7 @@
                 const btn = document.createElement('span'); btn.classList.add('title-item-btn');
                 btn.textContent = title === activeTitle ? '✅' : 'Установить';
                 btn.addEventListener('click', () => setActiveTitle(title));
-                item.appendChild(btn);
-                list.appendChild(item);
+                item.appendChild(btn); list.appendChild(item);
             });
         }
 
@@ -273,6 +279,7 @@
                 activeTitle = title;
                 renderTitles();
                 document.getElementById('profileActiveTitle').textContent = title;
+                setTimeout(() => profileOverlay.classList.add('hidden'), 500);
             } catch(e) {}
         }
 
