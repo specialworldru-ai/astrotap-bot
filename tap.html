@@ -81,6 +81,21 @@
         .my-rank-section { text-align: center; background: rgba(30, 27, 75, 0.7); border: 1px solid rgba(124, 58, 237, 0.4); border-radius: 16px; padding: 16px; width: 100%; max-width: 260px; }
         #myRank { font-size: 32px; font-weight: 900; color: #fbbf24; text-shadow: 0 0 15px rgba(251, 191, 36, 0.6); }
         #myRankBalance { font-size: 12px; color: #a5b4fc; margin-top: 4px; }
+        /* Реферальная панель */
+        .ref-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 998; display: flex; justify-content: center; align-items: center; padding: 16px; }
+        .ref-overlay.hidden { display: none; }
+        .ref-card { background: rgba(10,5,30,0.98); border: 2px solid #fbbf24; border-radius: 24px; padding: 24px 20px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 0 60px rgba(251,191,36,0.3); position: relative; }
+        .ref-close { position: absolute; top: 10px; right: 14px; font-size: 22px; cursor: pointer; color: #818cf8; background: none; border: none; }
+        .ref-title { font-size: 20px; font-weight: 900; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 16px; letter-spacing: 2px; }
+        .ref-stats { display: flex; justify-content: space-around; gap: 10px; margin: 16px 0; }
+        .ref-stat { background: rgba(30,27,75,0.8); border: 1px solid rgba(124,58,237,0.4); border-radius: 14px; padding: 14px 12px; flex: 1; }
+        .ref-stat-val { font-size: 24px; font-weight: 900; color: #fbbf24; }
+        .ref-stat-lbl { font-size: 9px; color: #818cf8; margin-top: 4px; letter-spacing: 1px; }
+        .ref-link-box { background: rgba(0,0,0,0.5); border: 1px solid rgba(167,139,250,0.4); border-radius: 14px; padding: 14px; margin: 16px 0; word-break: break-all; font-size: 11px; color: #a5b4fc; text-align: center; }
+        .ref-copy-btn { padding: 10px 30px; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; border: none; border-radius: 25px; font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: all 0.3s; }
+        .ref-copy-btn:active { transform: scale(0.95); }
+        .ref-info { font-size: 10px; color: #6366f1; margin-top: 12px; line-height: 1.5; }
+        .ref-premium { color: #fbbf24; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -90,11 +105,29 @@
         <div class="onboarding-card" id="onboardingCard">
             <div class="onboarding-content">
                 <div class="onboarding-slide" data-slide="0"><div class="onboarding-icon">🚀</div><div class="onboarding-title">ДОБРО ПОЖАЛОВАТЬ!</div><div class="onboarding-text">Приветствуем, дорогой друг!<br>Добро пожаловать во вселенную <b>AstroTap</b> — здесь ты будешь тапать, качать апгрейды и покорять галактику!</div></div>
-                <div class="onboarding-slide" data-slide="1" style="display:none"><div class="onboarding-icon">📜</div><div class="onboarding-title">ПРАВИЛА</div><div class="onboarding-text">⚡ Тапай по планете — получай астро-очки<br>🛸 Покупай апгрейды и становись сильнее<br>💾 Очки сохраняются автоматически<br>🏆 Соревнуйся в таблице лидеров</div></div>
+                <div class="onboarding-slide" data-slide="1" style="display:none"><div class="onboarding-icon">📜</div><div class="onboarding-title">ПРАВИЛА</div><div class="onboarding-text">⚡ Тапай по планете — получай астро-очки<br>🛸 Покупай апгрейды и становись сильнее<br>💾 Очки сохраняются автоматически<br>👥 Приглашай друзей — получай бонусы!</div></div>
                 <div class="onboarding-slide" data-slide="2" style="display:none"><div class="onboarding-icon">💡</div><div class="onboarding-title">СОВЕТ</div><div class="onboarding-text">Чем больше тапаешь — тем больше очков!<br>Твой прогресс не пропадёт<br>Удачи, космонавт! 🌟</div></div>
             </div>
             <div class="onboarding-dots"><div class="onboarding-dot active" data-dot="0"></div><div class="onboarding-dot" data-dot="1"></div><div class="onboarding-dot" data-dot="2"></div></div>
             <div class="onboarding-swipe-hint">← СВАЙПНИ / СТРЕЛКИ →</div>
+        </div>
+    </div>
+    <!-- РЕФЕРАЛЬНАЯ ПАНЕЛЬ -->
+    <div class="ref-overlay hidden" id="refOverlay">
+        <div class="ref-card">
+            <button class="ref-close" id="refClose">✕</button>
+            <div class="ref-title">👥 ПРИГЛАСИ ДРУГА</div>
+            <div class="ref-stats">
+                <div class="ref-stat"><div class="ref-stat-val" id="refCount">0</div><div class="ref-stat-lbl">👥 ДРУЗЕЙ</div></div>
+                <div class="ref-stat"><div class="ref-stat-val" id="refIncome">0</div><div class="ref-stat-lbl">💰 ДОХОД</div></div>
+            </div>
+            <div class="ref-link-box" id="refLink">Загрузка...</div>
+            <button class="ref-copy-btn" id="refCopyBtn">📋 КОПИРОВАТЬ</button>
+            <div class="ref-info">
+                💎 <b>5000</b> очков за друга<br>
+                💸 <b>5%</b> от тапов реферала<br>
+                <span class="ref-premium">🌟 Premium: 10000 очков + 10%</span>
+            </div>
         </div>
     </div>
     <div class="container">
@@ -104,6 +137,7 @@
             <button class="nav-btn active" data-panel="tap">🪐 ТАП</button>
             <button class="nav-btn" data-panel="upgrades">🛸 АПГРЕЙДЫ</button>
             <button class="nav-btn" data-panel="leaderboard">🏆 ТОП</button>
+            <button class="nav-btn" id="refNavBtn" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000;">👥 ДРУЗЬЯ</button>
         </div>
         <div class="panel active" id="panel-tap">
             <div class="score-section"><div class="score-label">💎 АСТРО-ОЧКИ</div><div id="score">0</div></div>
@@ -136,18 +170,14 @@
         }
 
         const loadingScreen = document.getElementById('loadingScreen');
-        window.addEventListener('load', () => {
-            setTimeout(() => { loadingScreen.classList.add('hidden'); setTimeout(() => loadingScreen.remove(), 600); }, 1500);
-        });
+        window.addEventListener('load', () => { setTimeout(() => { loadingScreen.classList.add('hidden'); setTimeout(() => loadingScreen.remove(), 600); }, 1500); });
 
         const onboardingOverlay = document.getElementById('onboardingOverlay');
         const onboardingCard = document.getElementById('onboardingCard');
         const slides = document.querySelectorAll('.onboarding-slide');
         const dots = document.querySelectorAll('.onboarding-dot');
         let currentSlide = 0, touchStartX = 0, mouseDown = false, mouseStartX = 0;
-
         if (localStorage.getItem('astrotap_onboarding_done') === 'true') onboardingOverlay.remove();
-
         function showSlide(i) { slides.forEach(s => s.style.display = 'none'); dots.forEach(d => d.classList.remove('active')); slides[i].style.display = 'block'; dots[i].classList.add('active'); currentSlide = i; }
         function closeOnboarding() { onboardingOverlay.classList.add('hidden'); setTimeout(() => onboardingOverlay.remove(), 400); localStorage.setItem('astrotap_onboarding_done', 'true'); }
         onboardingCard.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
@@ -158,10 +188,45 @@
         function handleSwipe(diff) { if (Math.abs(diff) > 40) { if (diff > 0 && currentSlide < 2) showSlide(currentSlide + 1); else if (diff < 0 && currentSlide > 0) showSlide(currentSlide - 1); } }
         onboardingCard.addEventListener('click', e => { if (Math.abs(mouseStartX - e.screenX) > 40) return; if (currentSlide === 2) closeOnboarding(); });
 
+        const BOT_USERNAME = "твой_бот"; // ← ЗАМЕНИ на юзернейм бота без @
         const API_URL = "https://astrotap-bot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const MY_USER_ID = urlParams.get('user_id') || tg.initDataUnsafe?.user?.id || 0;
         const MY_USERNAME = urlParams.get('username') || tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "unknown";
+
+        // Реферальная панель
+        const refOverlay = document.getElementById('refOverlay');
+        const refClose = document.getElementById('refClose');
+        const refCopyBtn = document.getElementById('refCopyBtn');
+        const refNavBtn = document.getElementById('refNavBtn');
+        const refLinkEl = document.getElementById('refLink');
+        const refCountEl = document.getElementById('refCount');
+        const refIncomeEl = document.getElementById('refIncome');
+
+        function getRefLink() { return `https://t.me/${BOT_USERNAME}?start=ref${MY_USER_ID}`; }
+
+        refNavBtn.addEventListener('click', () => {
+            refLinkEl.textContent = getRefLink();
+            refOverlay.classList.remove('hidden');
+            loadRefStats();
+        });
+        refClose.addEventListener('click', () => refOverlay.classList.add('hidden'));
+        refOverlay.addEventListener('click', (e) => { if (e.target === refOverlay) refOverlay.classList.add('hidden'); });
+        refCopyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(getRefLink()).then(() => {
+                refCopyBtn.textContent = '✅ СКОПИРОВАНО!';
+                setTimeout(() => refCopyBtn.textContent = '📋 КОПИРОВАТЬ', 2000);
+            });
+        });
+
+        async function loadRefStats() {
+            try {
+                const resp = await fetch(API_URL + "/rank/" + MY_USER_ID);
+                const data = await resp.json();
+                refCountEl.textContent = data.ref_count || 0;
+                refIncomeEl.textContent = formatNumber(data.ref_income || 0);
+            } catch(e) {}
+        }
 
         const levels = [
             { lvl: 1, cost: 50, mult: 2, roman: 'I' }, { lvl: 2, cost: 150, mult: 3, roman: 'II' },
@@ -182,18 +247,12 @@
         function getCost(lvl) { return lvl >= levels.length ? Infinity : levels[lvl].cost; }
         function getMult(lvl) { return lvl === 0 ? 1 : levels[lvl - 1].mult; }
         function getRoman(lvl) { return lvl === 0 ? '—' : levels[lvl - 1].roman; }
-
         function getUpgradesData() { return { tap: tapLevel, crit: critLevel, autotap: autoTapLevel, energy: energyLevel, vamp: vampLevel, luck: luckLevel, shield: shieldLevel, combo: comboLevel }; }
 
         function applyUpgrades(s) {
-            if (s.tap) tapLevel = s.tap;
-            if (s.crit) critLevel = s.crit;
-            if (s.autotap) autoTapLevel = s.autotap;
-            if (s.energy) energyLevel = s.energy;
-            if (s.vamp) vampLevel = s.vamp;
-            if (s.luck) luckLevel = s.luck;
-            if (s.shield) shieldLevel = s.shield;
-            if (s.combo) comboLevel = s.combo;
+            if (s.tap) tapLevel = s.tap; if (s.crit) critLevel = s.crit; if (s.autotap) autoTapLevel = s.autotap;
+            if (s.energy) energyLevel = s.energy; if (s.vamp) vampLevel = s.vamp; if (s.luck) luckLevel = s.luck;
+            if (s.shield) shieldLevel = s.shield; if (s.combo) comboLevel = s.combo;
             if (tapLevel > 0) tapPower = getMult(tapLevel);
             if (critLevel > 0) critChance = critLevel * 5;
             if (energyLevel > 0) { MAX_ENERGY_VAL = 1000 + energyLevel * 500; energy = MAX_ENERGY_VAL; }
@@ -201,36 +260,18 @@
             saveLocalUpgrades();
         }
 
-        function saveLocalUpgrades() {
-            try { localStorage.setItem('astrotap_upgrades', JSON.stringify(getUpgradesData())); } catch (e) {}
-        }
+        function saveLocalUpgrades() { try { localStorage.setItem('astrotap_upgrades', JSON.stringify(getUpgradesData())); } catch (e) {} }
 
         async function syncUpgradesToServer() {
             if (MY_USER_ID && MY_USER_ID !== 0) {
-                try {
-                    await fetch(API_URL + "/save", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ user_id: MY_USER_ID, balance: score, username: MY_USERNAME, upgrades: getUpgradesData() })
-                    });
-                } catch(e) {}
+                try { await fetch(API_URL + "/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: MY_USER_ID, balance: score, username: MY_USERNAME, upgrades: getUpgradesData() }) }); } catch(e) {}
             }
         }
 
         async function loadUpgrades() {
-            try {
-                const localS = JSON.parse(localStorage.getItem('astrotap_upgrades'));
-                if (localS && Object.keys(localS).length > 0) applyUpgrades(localS);
-            } catch (e) {}
-
+            try { const localS = JSON.parse(localStorage.getItem('astrotap_upgrades')); if (localS && Object.keys(localS).length > 0) applyUpgrades(localS); } catch (e) {}
             if (MY_USER_ID && MY_USER_ID !== 0) {
-                try {
-                    const resp = await fetch(API_URL + "/rank/" + MY_USER_ID);
-                    const data = await resp.json();
-                    if (data.upgrades && Object.keys(data.upgrades).length > 0) {
-                        applyUpgrades(data.upgrades);
-                    }
-                } catch (e) {}
+                try { const resp = await fetch(API_URL + "/rank/" + MY_USER_ID); const data = await resp.json(); if (data.upgrades && Object.keys(data.upgrades).length > 0) applyUpgrades(data.upgrades); } catch (e) {}
             }
         }
 
@@ -240,7 +281,8 @@
 
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                if (btn === refNavBtn) return;
+                document.querySelectorAll('.nav-btn').forEach(b => { if (b !== refNavBtn) b.classList.remove('active'); });
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
@@ -250,10 +292,7 @@
 
         async function autoSave() {
             if (score !== lastSavedScore) {
-                try {
-                    await fetch(API_URL + "/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: MY_USER_ID, balance: score, username: MY_USERNAME, upgrades: getUpgradesData() }) });
-                    lastSavedScore = score;
-                } catch(e) {}
+                try { await fetch(API_URL + "/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: MY_USER_ID, balance: score, username: MY_USERNAME, upgrades: getUpgradesData() }) }); lastSavedScore = score; } catch(e) {}
             }
         }
         setInterval(autoSave, 3000);

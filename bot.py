@@ -1,4 +1,3 @@
-# bot.py
 import asyncio
 import uvicorn
 from aiogram import Bot, Dispatcher, types
@@ -13,6 +12,7 @@ import aiosqlite
 TOKEN = "8531331166:AAFjqwWfhyUK8ATb42Bz81Wp1FfBf9bvgpc"
 WEBAPP_URL = "https://specialworldru-ai.github.io/astrotap-bot/tap.html"
 ADMIN_ID = 8683532059
+BOT_USERNAME = "AstroTapBot"  # ← ЗАМЕНИ на юзернейм бота без @
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -28,30 +28,96 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
                 balance INTEGER DEFAULT 0,
-                username TEXT
+                username TEXT,
+                upgrades_json TEXT DEFAULT '{}',
+                ref_id INTEGER DEFAULT 0,
+                is_premium INTEGER DEFAULT 0,
+                ref_count INTEGER DEFAULT 0,
+                ref_income INTEGER DEFAULT 0
             )
         """)
+        # Добавляем колонки если их нет
+        for col in ['upgrades_json', 'ref_id', 'is_premium', 'ref_count', 'ref_income']:
+            try:
+                await db.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT '0'")
+            except:
+                pass
         await db.commit()
 
-# ============ /start ============
-@dp.message(lambda msg: msg.text == "/start")
+def get_ref_link(user_id):
+    return f"https://t.me/{BOT_USERNAME}?start=ref{user_id}"
+
+# ============ /start с рефералом ============
+@dp.message(lambda msg: msg.text and msg.text.startswith("/start"))
 async def start_cmd(msg: types.Message):
     user_id = msg.from_user.id
     username = msg.from_user.username or msg.from_user.first_name or "unknown"
+    is_premium = msg.from_user.is_premium or False
     
-    # Сохраняем в базу при старте
+    # Проверяем реферальный код
+    ref_id = 0
+    args = msg.text.split()
+    if len(args) > 1 and args[1].startswith("ref"):
+        try:
+            ref_id = int(args[1][3:])
+        except:
+            pass
+    
     async with aiosqlite.connect("users.db") as db:
+        # Проверяем есть ли уже пользователь
+        cursor = await db.execute("SELECT ref_id FROM users WHERE user_id = ?", (user_id,))
+        existing = await cursor.fetchone()
+        
+        if existing and existing[0] == 0 and ref_id != 0 and ref_id != user_id:
+            # Новый реферал!
+            bonus = 10000 if is_premium else 5000
+            commission = 10 if is_premium else 5
+            
+            await db.execute(
+                "UPDATE users SET ref_id = ?, is_premium = ?, balance = balance + ? WHERE user_id = ?",
+                (ref_id, 1 if is_premium else 0, bonus, user_id)
+            )
+            await db.execute(
+                "UPDATE users SET ref_count = ref_count + 1 WHERE user_id = ?",
+                (ref_id,)
+            )
+            await db.commit()
+            
+            # Уведомляем пригласившего
+            try:
+                await bot.send_message(
+                    ref_id,
+                    f"🎉 *Новый реферал!*\n\n"
+                    f"👤 {username} присоединился по вашей ссылке!\n"
+                    f"💎 Вы получили {bonus} очков!\n"
+                    f"💸 Комиссия: {commission}% от тапов реферала\n"
+                    f"👥 Всего рефералов: смотрите в боте",
+                    parse_mode="Markdown"
+                )
+            except:
+                pass
+        elif not existing:
+            # Новый пользователь
+            await db.execute(
+                "INSERT INTO users (user_id, balance, username, ref_id, is_premium, ref_count, ref_income) VALUES (?, 0, ?, ?, ?, 0, 0)",
+                (user_id, username, ref_id, 1 if is_premium else 0)
+            )
+            await db.commit()
+        
+        # Обновляем username и premium статус
         await db.execute(
-            "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
-            (user_id, 0, username)
+            "UPDATE users SET username = ?, is_premium = ? WHERE user_id = ?",
+            (username, 1 if is_premium else 0, user_id)
         )
         await db.commit()
     
-    # Передаём ID и имя в URL мини-аппы
     webapp_url = f"{WEBAPP_URL}?user_id={user_id}&username={username}"
     
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=webapp_url))]],
+        keyboard=[[
+            types.KeyboardButton(text="🪐 ASTROTAP", web_app=WebAppInfo(url=webapp_url)),
+            types.KeyboardButton(text="👥 РЕФЕРАЛЫ")
+        ]],
         resize_keyboard=True
     )
     await msg.answer(
@@ -61,6 +127,7 @@ async def start_cmd(msg: types.Message):
         "• Тапай по планете — очки сохраняются *автоматически*!\n"
         "• 8 апгрейдов до 10 уровней\n"
         "• Таблица лидеров\n"
+        "• Реферальная программа\n"
         "• Вампиризм, щит, комбо, удача\n\n"
         "📢 Канал: @AstroTap\n\n"
         "Жми кнопку и погнали! 👇",
@@ -68,18 +135,68 @@ async def start_cmd(msg: types.Message):
         parse_mode="Markdown"
     )
 
-# ============ Сохранение (тихое) ============
+# ============ Кнопка РЕФЕРАЛЫ ============
+@dp.message(lambda msg: msg.text == "👥 РЕФЕРАЛЫ")
+async def ref_info(msg: types.Message):
+    user_id = msg.from_user.id
+    
+    async with aiosqlite.connect("users.db") as db:
+        cursor = await db.execute("SELECT ref_count, ref_income, is_premium FROM users WHERE user_id = ?", (user_id,))
+        row = await cursor.fetchone()
+    
+    if row:
+        ref_count, ref_income, is_premium = row
+        bonus = 10000 if is_premium else 5000
+        commission = 10 if is_premium else 5
+        ref_link = get_ref_link(user_id)
+        
+        text = (
+            "👥 *РЕФЕРАЛЬНАЯ ПРОГРАММА*\n\n"
+            f"🔗 Твоя ссылка:\n`{ref_link}`\n\n"
+            f"💎 Бонус за друга: {bonus} очков\n"
+            f"💸 Комиссия: {commission}% от тапов\n\n"
+            f"📊 *Статистика:*\n"
+            f"👥 Приглашено: {ref_count} чел.\n"
+            f"💰 Доход: {ref_income} очков\n\n"
+            f"{'🌟 У тебя Telegram Premium — бонусы x2!' if is_premium else '💡 Купи Telegram Premium — бонусы x2!'}\n\n"
+            f"Отправь ссылку другу и получай награду!"
+        )
+    else:
+        text = "Сначала нажми /start"
+    
+    await msg.answer(text, parse_mode="Markdown")
+
+# ============ Сохранение (тихое) + реферальная комиссия ============
 @dp.message(lambda msg: msg.web_app_data is not None)
 async def web_app_data(msg: types.Message):
     try:
         data = int(msg.web_app_data.data)
         user_id = msg.from_user.id
         username = msg.from_user.username or msg.from_user.first_name or "unknown"
+        
         async with aiosqlite.connect("users.db") as db:
+            # Сохраняем очки
             await db.execute(
                 "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
                 (user_id, data, username)
             )
+            
+            # Начисляем комиссию рефереру
+            cursor = await db.execute("SELECT ref_id, is_premium FROM users WHERE user_id = ?", (user_id,))
+            ref_row = await cursor.fetchone()
+            if ref_row and ref_row[0] and ref_row[0] != user_id:
+                commission_rate = 0.10 if ref_row[1] else 0.05
+                commission = int(data * commission_rate)
+                if commission > 0:
+                    await db.execute(
+                        "UPDATE users SET ref_income = ref_income + ? WHERE user_id = ?",
+                        (commission, ref_row[0])
+                    )
+                    await db.execute(
+                        "UPDATE users SET balance = balance + ? WHERE user_id = ?",
+                        (commission, ref_row[0])
+                    )
+            
             await db.commit()
     except:
         pass
@@ -92,11 +209,11 @@ async def admin_panel(msg: types.Message):
         return
     await msg.answer(
         "🛸 *АДМИН-ПАНЕЛЬ ASTROTAP*\n\n"
-        "📢 `/broadcast` — рассылка всем игрокам\n"
+        "📢 `/broadcast` — рассылка\n"
         "📊 `/stats` — статистика\n"
-        "💎 `/give ID сумма` — начислить очки\n"
-        "👤 `/user ID` — инфо об игроке\n"
-        "🆔 `/myid` — узнать свой ID",
+        "💎 `/give ID сумма` — начислить\n"
+        "👤 `/user ID` — инфо\n"
+        "🆔 `/myid` — свой ID",
         parse_mode="Markdown"
     )
 
@@ -108,13 +225,13 @@ async def myid_cmd(msg: types.Message):
 async def broadcast_start(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
     awaiting_broadcast[msg.from_user.id] = True
-    await msg.answer("📢 Отправь текст для рассылки.\nПоддерживается *Markdown*\n/cancel — отмена", parse_mode="Markdown")
+    await msg.answer("📢 Отправь текст для рассылки.\n/cancel — отмена", parse_mode="Markdown")
 
 @dp.message(Command("cancel"))
 async def cancel_cmd(msg: types.Message):
     if msg.from_user.id in awaiting_broadcast:
         del awaiting_broadcast[msg.from_user.id]
-        await msg.answer("❌ Рассылка отменена.")
+        await msg.answer("❌ Отменено.")
 
 @dp.message(lambda msg: msg.from_user.id in awaiting_broadcast)
 async def broadcast_send(msg: types.Message):
@@ -136,16 +253,16 @@ async def broadcast_send(msg: types.Message):
         except:
             failed += 1
     
-    await msg.answer(f"✅ Готово!\n📬 Отправлено: {sent}\n❌ Не доставлено: {failed}")
+    await msg.answer(f"✅ 📬 {sent} | ❌ {failed}")
 
 @dp.message(Command("stats"))
 async def stats_cmd(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
     async with aiosqlite.connect("users.db") as db:
-        cursor = await db.execute("SELECT COUNT(*), SUM(balance), MAX(balance) FROM users")
+        cursor = await db.execute("SELECT COUNT(*), SUM(balance), MAX(balance), SUM(ref_count) FROM users")
         row = await cursor.fetchone()
     await msg.answer(
-        f"📊 *СТАТИСТИКА*\n\n👥 Игроков: {row[0]}\n💎 Всего очков: {row[1] or 0}\n🏆 Рекорд: {row[2] or 0}",
+        f"📊 *СТАТИСТИКА*\n\n👥 Игроков: {row[0]}\n💎 Очков: {row[1] or 0}\n🏆 Рекорд: {row[2] or 0}\n👥 Рефералов: {row[3] or 0}",
         parse_mode="Markdown"
     )
 
@@ -162,11 +279,11 @@ async def give_cmd(msg: types.Message):
         await msg.answer("❌ /give 123456 1000")
         return
     async with aiosqlite.connect("users.db") as db:
-        await db.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?)", (target_id, amount, "admin_gift"))
+        await db.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, target_id))
         await db.commit()
     await msg.answer(f"✅ {amount} 💎 → {target_id}")
     try:
-        await bot.send_message(target_id, f"🎁 Администратор начислил вам {amount} 💎!")
+        await bot.send_message(target_id, f"🎁 Админ начислил {amount} 💎!")
     except:
         pass
 
@@ -180,32 +297,29 @@ async def user_cmd(msg: types.Message):
     try:
         target_id = int(parts[1])
     except:
-        await msg.answer("❌ Неверный ID")
+        await msg.answer("❌ ID")
         return
     async with aiosqlite.connect("users.db") as db:
-        cursor = await db.execute("SELECT balance, username FROM users WHERE user_id = ?", (target_id,))
+        cursor = await db.execute("SELECT balance, username, ref_count, ref_income FROM users WHERE user_id = ?", (target_id,))
         row = await cursor.fetchone()
     if row:
-        await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}")
+        await msg.answer(f"👤 {row[1]}\n🆔 {target_id}\n💎 {row[0]}\n👥 Реф: {row[2]}\n💰 Доход: {row[3]}")
     else:
-        await msg.answer("❌ Пользователь не найден.")
+        await msg.answer("❌ Не найден.")
 
 @dp.message(Command("dbcheck"))
 async def db_check(msg: types.Message):
     if msg.from_user.id != ADMIN_ID: return
-    
     async with aiosqlite.connect("users.db") as db:
         cursor = await db.execute("SELECT * FROM users")
         rows = await cursor.fetchall()
-    
     if rows:
-        text = "📊 *БАЗА ДАННЫХ:*\n\n"
-        for r in rows[:20]:  # Первые 20 записей
-            text += f"🆔 {r[0]} | 👤 {r[1]} | 💎 {r[2]}\n"
-        text += f"\nВсего записей: {len(rows)}"
+        text = "📊 *БАЗА:*\n\n"
+        for r in rows[:15]:
+            text += f"🆔 {r[0]} | 👤 {r[1]} | 💎 {r[2]} | 👥 {r[5] if len(r)>5 else 0}\n"
+        text += f"\nВсего: {len(rows)}"
     else:
-        text = "База пуста."
-    
+        text = "Пусто."
     await msg.answer(text, parse_mode="Markdown")
 
 # ============ API ============
@@ -217,20 +331,35 @@ async def save_balance(request: Request):
         user_id = data.get("user_id", 0)
         balance = data.get("balance")
         username = data.get("username", "unknown")
+        upgrades = data.get("upgrades", None)
         
         if balance is not None:
             async with aiosqlite.connect("users.db") as db:
-                # Если username неизвестный — проверяем есть ли уже в базе
                 if username == "unknown" and user_id:
                     cursor = await db.execute("SELECT username FROM users WHERE user_id = ? AND username != 'unknown'", (user_id,))
                     row = await cursor.fetchone()
-                    if row:
-                        username = row[0]
+                    if row: username = row[0]
                 
-                await db.execute(
-                    "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
-                    (user_id, balance, username)
-                )
+                if upgrades is not None:
+                    await db.execute(
+                        "INSERT OR REPLACE INTO users (user_id, balance, username, upgrades_json) VALUES (?, ?, ?, ?)",
+                        (user_id, balance, username, json.dumps(upgrades))
+                    )
+                else:
+                    await db.execute(
+                        "INSERT OR REPLACE INTO users (user_id, balance, username) VALUES (?, ?, ?)",
+                        (user_id, balance, username)
+                    )
+                
+                # Реферальная комиссия
+                cursor = await db.execute("SELECT ref_id, is_premium FROM users WHERE user_id = ?", (user_id,))
+                ref_row = await cursor.fetchone()
+                if ref_row and ref_row[0] and ref_row[0] != user_id:
+                    commission_rate = 0.10 if ref_row[1] else 0.05
+                    commission = int(balance * commission_rate)
+                    if commission > 0:
+                        await db.execute("UPDATE users SET ref_income = ref_income + ? WHERE user_id = ?", (commission, ref_row[0]))
+                
                 await db.commit()
             return {"status": "ok"}
     except Exception as e:
@@ -247,13 +376,14 @@ async def leaderboard():
 @api.get("/rank/{user_id}")
 async def get_rank(user_id: int):
     async with aiosqlite.connect("users.db") as db:
-        cursor = await db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        cursor = await db.execute("SELECT balance, upgrades_json, ref_count, ref_income FROM users WHERE user_id = ?", (user_id,))
         row = await cursor.fetchone()
         if row:
             cursor = await db.execute("SELECT COUNT(*) FROM users WHERE balance > ?", (row[0],))
             rank_row = await cursor.fetchone()
-            return {"rank": rank_row[0] + 1, "balance": row[0]}
-        return {"rank": None, "balance": 0}
+            upgrades = json.loads(row[1]) if row[1] else {}
+            return {"rank": rank_row[0] + 1, "balance": row[0], "upgrades": upgrades, "ref_count": row[2] or 0, "ref_income": row[3] or 0}
+        return {"rank": None, "balance": 0, "upgrades": {}, "ref_count": 0, "ref_income": 0}
 
 async def main():
     await init_db()
