@@ -321,6 +321,8 @@
                 if (data.status === "ok") {
                     score += reward; updateUI();
                     if (card) { card.classList.add('completed'); btn.textContent = '✅'; btn.classList.add('completed-btn'); btn.disabled = true; }
+                } else if (data.status === "already_completed") {
+                    if (card) { card.classList.add('completed'); btn.textContent = '✅'; btn.classList.add('completed-btn'); btn.disabled = true; }
                 }
             } catch(e) {}
         }

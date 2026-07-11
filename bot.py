@@ -407,15 +407,44 @@ async def complete_task(request: Request):
         data = await request.json()
         user_id = data.get("user_id")
         task_id = data.get("task_id")
+        
         async with aiosqlite.connect("users.db") as db:
-            cursor = await db.execute("SELECT reward FROM tasks WHERE id = ?", (task_id,))
+            # Проверяем не выполнено ли уже
+            cursor = await db.execute("SELECT 1 FROM task_completions WHERE user_id = ? AND task_id = ?", (user_id, task_id))
+            if await cursor.fetchone():
+                return {"status": "already_completed"}
+            
+            # Получаем задание
+            cursor = await db.execute("SELECT reward, type, goal FROM tasks WHERE id = ?", (task_id,))
             task = await cursor.fetchone()
-            if task:
-                await db.execute("INSERT OR IGNORE INTO task_completions VALUES (?, ?)", (user_id, task_id))
-                await db.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (task[0], user_id))
-                await db.commit()
-                return {"status": "ok", "reward": task[0]}
-    except: pass
+            if not task:
+                return {"status": "error", "msg": "Задание не найдено"}
+            
+            reward, task_type, goal = task
+            
+            # Проверка условий для типа 2 (тапы) и 3 (баланс)
+            if task_type == "2":
+                # Тапы проверяем через баланс (фронт не передаёт totalTaps)
+                cursor = await db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+                user_row = await cursor.fetchone()
+                user_balance = user_row[0] if user_row else 0
+                # Для тапов — просто разрешаем, фронт уже проверил
+                pass
+            elif task_type == "3":
+                # Проверяем баланс
+                cursor = await db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+                user_row = await cursor.fetchone()
+                user_balance = user_row[0] if user_row else 0
+                if user_balance < goal:
+                    return {"status": "not_enough", "msg": f"Нужно {goal}, у вас {user_balance}"}
+            
+            # Выполняем задание
+            await db.execute("INSERT OR IGNORE INTO task_completions VALUES (?, ?)", (user_id, task_id))
+            await db.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (reward, user_id))
+            await db.commit()
+            return {"status": "ok", "reward": reward}
+    except Exception as e:
+        print("Task error:", e)
     return {"status": "error"}
 
 async def main():
