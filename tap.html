@@ -278,20 +278,26 @@
                     if (task.completed) card.classList.add('completed');
                     let desc = "";
                     let canClaim = false;
-                    if (task.type === "1") { desc = "🔗 Перейти по ссылке"; canClaim = true; }
-                    else if (task.type === "2") { 
+                    if (task.type === "1") { 
+                        desc = "🔗 Перейти по ссылке"; 
+                        canClaim = true; 
+                    } else if (task.type === "2") { 
                         desc = `👆 Натапать ${formatNumber(task.goal)} раз (${formatNumber(totalTaps)}/${formatNumber(task.goal)})`; 
                         canClaim = totalTaps >= task.goal;
-                    }
-                    else { 
+                    } else if (task.type === "3") { 
                         desc = `💎 Накопить ${formatNumber(task.goal)} очков (${formatNumber(score)}/${formatNumber(task.goal)})`; 
                         canClaim = score >= task.goal;
                     }
                     card.innerHTML = `<div class="task-info"><div class="task-name">${task.name}</div><div style="font-size:10px;color:#818cf8;">${desc}</div><div class="task-reward">💎 ${formatNumber(task.reward)}</div></div>`;
                     const btn = document.createElement('button'); btn.classList.add('task-btn');
-                    if (task.completed) { btn.textContent = '✅'; btn.classList.add('completed-btn'); btn.disabled = true; }
-                    else if (canClaim) {
+                    if (task.completed) { 
+                        btn.textContent = '✅'; 
+                        btn.classList.add('completed-btn'); 
+                        btn.disabled = true; 
+                    } else if (canClaim) {
                         btn.textContent = '🎁';
+                        btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+                        btn.style.color = '#fff';
                         btn.addEventListener('click', () => {
                             if (task.type === "1" && task.link) window.open(task.link, '_blank');
                             completeTask(task.id, task.reward, card, btn);
@@ -300,9 +306,22 @@
                         btn.textContent = '🔒';
                         btn.disabled = true;
                         btn.style.opacity = '0.5';
+                        btn.style.background = 'rgba(75,85,99,0.5)';
+                        btn.style.color = '#6b7280';
                     }
                     card.appendChild(btn); list.appendChild(card);
                 });
+            } catch(e) {}
+        }
+
+        async function completeTask(taskId, reward, card, btn) {
+            try {
+                const resp = await fetch(API_URL + "/complete_task", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: MY_USER_ID, task_id: taskId }) });
+                const data = await resp.json();
+                if (data.status === "ok") {
+                    score += reward; updateUI();
+                    if (card) { card.classList.add('completed'); btn.textContent = '✅'; btn.classList.add('completed-btn'); btn.disabled = true; }
+                }
             } catch(e) {}
         }
 
