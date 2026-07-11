@@ -83,20 +83,22 @@
         #myRankBalance { font-size: 12px; color: #a5b4fc; margin-top: 4px; }
         .ref-overlay, .profile-overlay, .titles-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 998; display: flex; justify-content: center; align-items: center; padding: 16px; }
         .ref-overlay.hidden, .profile-overlay.hidden, .titles-overlay.hidden { display: none; }
-        .ref-card, .profile-card, .titles-card { background: rgba(10,5,30,0.98); border: 2px solid #fbbf24; border-radius: 24px; padding: 24px 20px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 0 60px rgba(251,191,36,0.3); position: relative; }
-        .profile-card { border-color: #a78bfa; box-shadow: 0 0 60px rgba(167,139,250,0.3); }
-        .titles-card { border-color: #fbbf24; }
+        .ref-card, .profile-card, .titles-card { background: rgba(10,5,30,0.98); border-radius: 24px; padding: 24px 20px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 0 60px rgba(251,191,36,0.3); position: relative; }
+        .ref-card { border: 2px solid #fbbf24; }
+        .profile-card { border: 2px solid #a78bfa; box-shadow: 0 0 60px rgba(167,139,250,0.3); }
+        .titles-card { border: 2px solid #fbbf24; }
         .ref-close, .profile-close, .titles-close { position: absolute; top: 10px; right: 14px; font-size: 22px; cursor: pointer; color: #818cf8; background: none; border: none; }
-        .ref-title, .profile-title, .titles-title { font-size: 20px; font-weight: 900; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 16px; letter-spacing: 2px; }
+        .ref-title, .profile-title, .titles-title { font-size: 20px; font-weight: 900; margin-bottom: 16px; letter-spacing: 2px; }
+        .ref-title, .titles-title { background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .profile-title { background: linear-gradient(135deg, #a78bfa, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .profile-avatar { width: 60px; height: 60px; background: linear-gradient(135deg, #a78bfa, #7c3aed); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 28px; margin: 0 auto 12px; box-shadow: 0 0 20px rgba(167,139,250,0.5); }
+        .profile-avatar { width: 60px; height: 60px; background: linear-gradient(135deg, #a78bfa, #7c3aed); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 28px; margin: 0 auto 12px; box-shadow: 0 0 20px rgba(167,139,250,0.5); overflow: hidden; }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
         .profile-name { font-size: 16px; font-weight: 700; color: #e0e7ff; margin-bottom: 4px; }
         .profile-username { font-size: 11px; color: #818cf8; margin-bottom: 12px; }
         .profile-title-active { font-size: 14px; font-weight: 700; color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 20px; padding: 6px 16px; display: inline-block; margin-bottom: 12px; }
         .profile-title-btn { padding: 8px 20px; background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; border: none; border-radius: 20px; font-family: 'Orbitron', sans-serif; font-size: 10px; cursor: pointer; letter-spacing: 1px; }
         .titles-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
         .title-item { background: rgba(30,27,75,0.8); border: 1px solid rgba(124,58,237,0.4); border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.3s; }
-        .title-item:hover { border-color: #fbbf24; }
         .title-item.active-title { border-color: #fbbf24; box-shadow: 0 0 15px rgba(251,191,36,0.3); }
         .title-item-name { font-size: 13px; font-weight: 700; color: #e0e7ff; }
         .title-item-btn { font-size: 10px; color: #fbbf24; }
@@ -167,6 +169,9 @@
             <div class="profile-username" id="profileUsername"></div>
             <div class="profile-title-active" id="profileActiveTitle">Без титула</div>
             <button class="profile-title-btn" id="profileTitleBtn">🎖 УСТАНОВИТЬ ТИТУЛ</button>
+        </div>
+    </div>
+    <div class="titles-overlay hidden" id="titlesOverlay">
         <div class="titles-card">
             <button class="titles-close" id="titlesClose">← НАЗАД</button>
             <div class="titles-title">🎖 МОИ ТИТУЛЫ</div>
@@ -205,9 +210,8 @@
         const urlParams = new URLSearchParams(window.location.search);
         const MY_USER_ID = urlParams.get('user_id') || tg.initDataUnsafe?.user?.id || 0;
         const MY_USERNAME = urlParams.get('username') || tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "unknown";
-        const BOT_USERNAME = "AstroTapBot";
+        const BOT_USERNAME = "твой_бот";
 
-        // Stars, loading, onboarding, ban check
         const starsContainer = document.getElementById('stars');
         for (let i = 0; i < 100; i++) { const s = document.createElement('div'); s.classList.add('star'); const sz = Math.random() * 2 + 1; s.style.width = sz + 'px'; s.style.height = sz + 'px'; s.style.left = Math.random() * 100 + '%'; s.style.top = Math.random() * 100 + '%'; s.style.setProperty('--duration', (Math.random() * 3 + 2) + 's'); s.style.setProperty('--delay', (Math.random() * 3) + 's'); starsContainer.appendChild(s); }
         const loadingScreen = document.getElementById('loadingScreen');
@@ -227,7 +231,6 @@
 
         async function checkBan() { try { if (!MY_USER_ID || MY_USER_ID === 0) return false; const resp = await fetch(API_URL + "/checkban/" + MY_USER_ID); const data = await resp.json(); if (data.banned) { document.getElementById('banReason').textContent = "Причина: " + (data.reason || "Нарушение правил"); document.getElementById('banOverlay').classList.remove('hidden'); document.querySelector('.container').style.display = 'none'; document.getElementById('loadingScreen')?.remove(); return true; } } catch(e) {} return false; }
 
-        // Profile
         const profileOverlay = document.getElementById('profileOverlay'), profileClose = document.getElementById('profileClose'), profileNavBtn = document.getElementById('profileNavBtn'), profileTitleBtn = document.getElementById('profileTitleBtn');
         const titlesOverlay = document.getElementById('titlesOverlay'), titlesClose = document.getElementById('titlesClose');
         let myTitles = [], activeTitle = "";
@@ -280,7 +283,6 @@
             } catch(e) {}
         }
 
-        // Ref
         const refOverlay = document.getElementById('refOverlay'), refClose = document.getElementById('refClose'), refCopyBtn = document.getElementById('refCopyBtn'), refNavBtn = document.getElementById('refNavBtn'), refLinkEl = document.getElementById('refLink'), refCountEl = document.getElementById('refCount'), refIncomeEl = document.getElementById('refIncome');
         function getRefLink() { return `https://t.me/${BOT_USERNAME}?start=ref${MY_USER_ID}`; }
         refNavBtn.addEventListener('click', () => { refLinkEl.textContent = getRefLink(); refOverlay.classList.remove('hidden'); loadRefStats(); });
