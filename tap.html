@@ -106,6 +106,13 @@
         .ban-subtitle { font-size: 14px; color: #818cf8; margin-bottom: 12px; }
         .ban-support-link { padding: 12px 30px; background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; border-radius: 25px; text-decoration: none; font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1px; transition: all 0.3s; display: inline-block; }
         .ban-support-link:active { transform: scale(0.95); }
+        .task-card { background: rgba(30,27,75,0.8); border: 1px solid rgba(251,191,36,0.4); border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+        .task-card.completed { opacity: 0.5; border-color: rgba(34,197,94,0.5); }
+        .task-info { flex: 1; }
+        .task-name { font-size: 12px; font-weight: 700; color: #e0e7ff; margin-bottom: 4px; }
+        .task-reward { font-size: 11px; color: #fbbf24; font-weight: 700; }
+        .task-btn { padding: 8px 16px; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; border: none; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        .task-btn.completed-btn { background: rgba(34,197,94,0.5); color: #fff; cursor: default; }
     </style>
 </head>
 <body>
@@ -146,6 +153,7 @@
             <button class="nav-btn active" data-panel="tap">🪐 ТАП</button>
             <button class="nav-btn" data-panel="upgrades">🛸 АПГРЕЙДЫ</button>
             <button class="nav-btn" data-panel="leaderboard">🏆 ТОП</button>
+            <button class="nav-btn" data-panel="bonuses">🎁 БОНУСЫ</button>
             <button class="nav-btn" id="refNavBtn" style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000;">👥 ДРУЗЬЯ</button>
         </div>
         <div class="panel active" id="panel-tap">
@@ -162,6 +170,11 @@
             <div class="my-rank-section"><div class="score-label">🏆 ТВОЙ РАНГ</div><div id="myRank">...</div><div id="myRankBalance"></div></div>
             <div class="leaderboard-list" id="leaderboardList"><div style="text-align:center;color:#818cf8;padding:20px;">🔄 Загрузка...</div></div>
         </div>
+        <div class="panel" id="panel-bonuses">
+            <div class="score-section"><div class="score-label">🎁 ЗАДАНИЯ</div><div style="font-size:14px;font-weight:700;color:#fbbf24;">Выполняй и получай!</div></div>
+            <div class="tasks-list" id="tasksList" style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;"></div>
+            <button id="refreshTasksBtn" style="padding:8px 24px;background:rgba(30,27,75,0.8);color:#a5b4fc;border:1px solid rgba(124,58,237,0.4);border-radius:18px;font-family:'Orbitron',sans-serif;font-size:10px;cursor:pointer;">🔄 ОБНОВИТЬ БОНУСЫ</button>
+        </div>
     </div>
     <script>
         const tg = window.Telegram.WebApp; tg.expand(); tg.ready();
@@ -170,6 +183,8 @@
         const MY_USER_ID = urlParams.get('user_id') || tg.initDataUnsafe?.user?.id || 0;
         const MY_USERNAME = urlParams.get('username') || tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "unknown";
         const BOT_USERNAME = "AstroTapBot";
+
+        let totalTaps = 0;
 
         const starsContainer = document.getElementById('stars');
         for (let i = 0; i < 100; i++) { const s = document.createElement('div'); s.classList.add('star'); const sz = Math.random() * 2 + 1; s.style.width = sz + 'px'; s.style.height = sz + 'px'; s.style.left = Math.random() * 100 + '%'; s.style.top = Math.random() * 100 + '%'; s.style.setProperty('--duration', (Math.random() * 3 + 2) + 's'); s.style.setProperty('--delay', (Math.random() * 3) + 's'); starsContainer.appendChild(s); }
@@ -216,14 +231,17 @@
         const scoreEl = document.getElementById('score'), scoreUpgradesEl = document.getElementById('scoreUpgrades'), tapBtn = document.getElementById('tapBtn'), energyBar = document.getElementById('energyBar'), energyText = document.getElementById('energyText'), refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) { refreshBtn.addEventListener('click', async () => { await loadBalance(); refreshBtn.textContent = '✅ ОБНОВЛЕНО!'; setTimeout(() => refreshBtn.textContent = '🔄 ОБНОВИТЬ БАЛАНС', 1500); }); }
 
-        document.querySelectorAll('.nav-btn').forEach(btn => { btn.addEventListener('click', () => { if (btn === refNavBtn) return; document.querySelectorAll('.nav-btn').forEach(b => { if (b !== refNavBtn) b.classList.remove('active'); }); document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); btn.classList.add('active'); document.getElementById('panel-' + btn.dataset.panel).classList.add('active'); if (btn.dataset.panel === 'leaderboard') { loadLeaderboard(); loadMyRank(); } }); });
+        const refreshTasksBtn = document.getElementById('refreshTasksBtn');
+        if (refreshTasksBtn) { refreshTasksBtn.addEventListener('click', async () => { await loadTasks(); refreshTasksBtn.textContent = '✅ ОБНОВЛЕНО!'; setTimeout(() => refreshTasksBtn.textContent = '🔄 ОБНОВИТЬ БОНУСЫ', 1500); }); }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => { btn.addEventListener('click', () => { if (btn === refNavBtn) return; document.querySelectorAll('.nav-btn').forEach(b => { if (b !== refNavBtn) b.classList.remove('active'); }); document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); btn.classList.add('active'); document.getElementById('panel-' + btn.dataset.panel).classList.add('active'); if (btn.dataset.panel === 'leaderboard') { loadLeaderboard(); loadMyRank(); } if (btn.dataset.panel === 'bonuses') { loadTasks(); } }); });
 
         async function autoSave() { if (score !== lastSavedScore) { try { await fetch(API_URL + "/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: MY_USER_ID, balance: score, username: MY_USERNAME, upgrades: getUpgradesData() }) }); lastSavedScore = score; } catch(e) {} } }
         setInterval(autoSave, 3000);
 
-        tapBtn.addEventListener('click', (e) => { if (energy >= 1) { let gained = tapPower; if (critChance > 0 && Math.random() * 100 < critChance) gained *= 3; if (comboLevel > 0 && Math.random() * 100 < comboLevel * 3) gained *= 5; if (luckLevel > 0 && Math.random() * 100 < luckLevel) gained += 1000; score += gained; let energyUsed = 1; if (shieldLevel > 0 && Math.random() * 100 < shieldLevel * 5) energyUsed = 0; energy -= energyUsed; if (vampLevel > 0 && Math.random() * 100 < vampLevel * 5) energy = Math.min(MAX_ENERGY_VAL, energy + Math.floor(vampLevel / 2) + 1); updateUI(); spawnParticle(e, gained); scoreEl.classList.add('pulse'); setTimeout(() => scoreEl.classList.remove('pulse'), 150); } });
+        tapBtn.addEventListener('click', (e) => { if (energy >= 1) { let gained = tapPower; if (critChance > 0 && Math.random() * 100 < critChance) gained *= 3; if (comboLevel > 0 && Math.random() * 100 < comboLevel * 3) gained *= 5; if (luckLevel > 0 && Math.random() * 100 < luckLevel) gained += 1000; score += gained; totalTaps++; let energyUsed = 1; if (shieldLevel > 0 && Math.random() * 100 < shieldLevel * 5) energyUsed = 0; energy -= energyUsed; if (vampLevel > 0 && Math.random() * 100 < vampLevel * 5) energy = Math.min(MAX_ENERGY_VAL, energy + Math.floor(vampLevel / 2) + 1); updateUI(); spawnParticle(e, gained); scoreEl.classList.add('pulse'); setTimeout(() => scoreEl.classList.remove('pulse'), 150); } });
         function spawnParticle(e, amount) { const rect = tapBtn.getBoundingClientRect(), p = document.createElement('div'); p.classList.add('particle'); p.textContent = '+' + amount; p.style.left = (e.clientX - rect.left) + 'px'; p.style.top = (e.clientY - rect.top) + 'px'; tapBtn.appendChild(p); setTimeout(() => p.remove(), 1000); }
-        function startAutoTap(speed = 2000) { stopAutoTap(); autoTapActive = true; autoTapInterval = setInterval(() => { if (energy >= 1) { let gained = tapPower; if (critChance > 0 && Math.random() * 100 < critChance) gained *= 3; if (comboLevel > 0 && Math.random() * 100 < comboLevel * 3) gained *= 5; if (luckLevel > 0 && Math.random() * 100 < luckLevel) gained += 1000; score += gained; let energyUsed = 1; if (shieldLevel > 0 && Math.random() * 100 < shieldLevel * 5) energyUsed = 0; energy -= energyUsed; if (vampLevel > 0 && Math.random() * 100 < vampLevel * 5) energy = Math.min(MAX_ENERGY_VAL, energy + Math.floor(vampLevel / 2) + 1); updateUI(); } }, speed); }
+        function startAutoTap(speed = 2000) { stopAutoTap(); autoTapActive = true; autoTapInterval = setInterval(() => { if (energy >= 1) { let gained = tapPower; if (critChance > 0 && Math.random() * 100 < critChance) gained *= 3; if (comboLevel > 0 && Math.random() * 100 < comboLevel * 3) gained *= 5; if (luckLevel > 0 && Math.random() * 100 < luckLevel) gained += 1000; score += gained; totalTaps++; let energyUsed = 1; if (shieldLevel > 0 && Math.random() * 100 < shieldLevel * 5) energyUsed = 0; energy -= energyUsed; if (vampLevel > 0 && Math.random() * 100 < vampLevel * 5) energy = Math.min(MAX_ENERGY_VAL, energy + Math.floor(vampLevel / 2) + 1); updateUI(); } }, speed); }
         function stopAutoTap() { if (autoTapInterval) { clearInterval(autoTapInterval); autoTapInterval = null; } autoTapActive = false; }
 
         function renderUpgrades() { const list = document.getElementById('upgradesList'); list.innerHTML = ''; const items = [{ icon: '👆', name: 'СИЛА ТАПА', lvl: tapLevel, max: 10, desc: `Ур. ${getRoman(tapLevel)} | x${getMult(tapLevel)}`, fn: () => { if (score >= getCost(tapLevel) && tapLevel < 10) { score -= getCost(tapLevel); tapLevel++; tapPower = getMult(tapLevel); saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '⚡', name: 'КРИТ-ШАНС', lvl: critLevel, max: 10, desc: `Ур. ${getRoman(critLevel)} | ${critLevel * 5}% шанс x3`, fn: () => { if (score >= getCost(critLevel) && critLevel < 10) { score -= getCost(critLevel); critLevel++; critChance = critLevel * 5; saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '🤖', name: 'АВТО-ТАП', lvl: autoTapLevel, max: 10, desc: `Ур. ${getRoman(autoTapLevel)} | ${autoTapLevel > 0 ? (Math.max(500, 2000 - autoTapLevel * 150) / 1000).toFixed(1) + 'с' : 'Выкл'}`, fn: () => { if (score >= getCost(autoTapLevel) && autoTapLevel < 10) { score -= getCost(autoTapLevel); autoTapLevel++; autoTapSpeed = Math.max(500, 2000 - autoTapLevel * 150); startAutoTap(autoTapSpeed); saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '🔋', name: 'ЭНЕРГО-БЛОК', lvl: energyLevel, max: 10, desc: `Ур. ${getRoman(energyLevel)} | Макс: ${1000 + energyLevel * 500}`, fn: () => { if (score >= getCost(energyLevel) && energyLevel < 10) { score -= getCost(energyLevel); energyLevel++; MAX_ENERGY_VAL = 1000 + energyLevel * 500; energy = MAX_ENERGY_VAL; saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '🩸', name: 'ВАМПИРИЗМ', lvl: vampLevel, max: 10, desc: `Ур. ${getRoman(vampLevel)} | ${vampLevel * 5}% шанс +${Math.floor(vampLevel / 2) + 1}⚡`, fn: () => { if (score >= getCost(vampLevel) && vampLevel < 10) { score -= getCost(vampLevel); vampLevel++; saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '🍀', name: 'УДАЧА', lvl: luckLevel, max: 10, desc: `Ур. ${getRoman(luckLevel)} | ${luckLevel}% шанс +1000💎`, fn: () => { if (score >= getCost(luckLevel) && luckLevel < 10) { score -= getCost(luckLevel); luckLevel++; saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '🛡️', name: 'ЩИТ', lvl: shieldLevel, max: 10, desc: `Ур. ${getRoman(shieldLevel)} | ${shieldLevel * 5}% не тратить ⚡`, fn: () => { if (score >= getCost(shieldLevel) && shieldLevel < 10) { score -= getCost(shieldLevel); shieldLevel++; saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }, { icon: '💣', name: 'КОМБО-УДАР', lvl: comboLevel, max: 10, desc: `Ур. ${getRoman(comboLevel)} | ${comboLevel * 3}% шанс x5`, fn: () => { if (score >= getCost(comboLevel) && comboLevel < 10) { score -= getCost(comboLevel); comboLevel++; saveLocalUpgrades(); syncUpgradesToServer(); updateUI(); } } }];
@@ -246,6 +264,60 @@
                 document.getElementById('myRankBalance').textContent = data.rank ? '💎 ' + formatNumber(data.balance) : 'Ещё не сохранял';
             } catch (e) { document.getElementById('myRank').textContent = '?'; }
         }
+
+        // Задания
+        async function loadTasks() {
+            try {
+                const resp = await fetch(API_URL + "/tasks/" + MY_USER_ID);
+                const data = await resp.json();
+                const list = document.getElementById('tasksList');
+                list.innerHTML = '';
+                if (data.tasks.length === 0) { list.innerHTML = '<div style="text-align:center;color:#818cf8;padding:20px;">Пока нет заданий</div>'; return; }
+                data.tasks.forEach(task => {
+                    const card = document.createElement('div'); card.classList.add('task-card');
+                    if (task.completed) card.classList.add('completed');
+                    let desc = "";
+                    if (task.type === "1") desc = "🔗 Перейти по ссылке";
+                    else if (task.type === "2") desc = `👆 Натапать ${formatNumber(task.goal)} раз`;
+                    else desc = `💎 Накопить ${formatNumber(task.goal)} очков`;
+                    card.innerHTML = `<div class="task-info"><div class="task-name">${task.name}</div><div style="font-size:10px;color:#818cf8;">${desc}</div><div class="task-reward">💎 ${formatNumber(task.reward)}</div></div>`;
+                    const btn = document.createElement('button'); btn.classList.add('task-btn');
+                    if (task.completed) { btn.textContent = '✅'; btn.classList.add('completed-btn'); btn.disabled = true; }
+                    else {
+                        btn.textContent = '➡️';
+                        btn.addEventListener('click', () => {
+                            if (task.type === "1" && task.link) window.open(task.link, '_blank');
+                            completeTask(task.id, task.reward, card, btn);
+                        });
+                    }
+                    card.appendChild(btn); list.appendChild(card);
+                });
+            } catch(e) {}
+        }
+
+        async function completeTask(taskId, reward, card, btn) {
+            try {
+                const resp = await fetch(API_URL + "/complete_task", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: MY_USER_ID, task_id: taskId }) });
+                const data = await resp.json();
+                if (data.status === "ok") {
+                    score += reward; updateUI();
+                    if (card) { card.classList.add('completed'); btn.textContent = '✅'; btn.classList.add('completed-btn'); btn.disabled = true; }
+                }
+            } catch(e) {}
+        }
+
+        setInterval(async () => {
+            try {
+                const resp = await fetch(API_URL + "/tasks/" + MY_USER_ID);
+                const data = await resp.json();
+                data.tasks.forEach(task => {
+                    if (!task.completed) {
+                        if (task.type === "2" && totalTaps >= task.goal) { completeTask(task.id, task.reward); }
+                        if (task.type === "3" && score >= task.goal) { completeTask(task.id, task.reward); }
+                    }
+                });
+            } catch(e) {}
+        }, 5000);
 
         function escapeHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
         function formatNumber(n) { if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'; if (n >= 1000) return (n / 1000).toFixed(1) + 'K'; return n.toString(); }
