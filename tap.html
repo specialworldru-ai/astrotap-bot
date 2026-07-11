@@ -124,9 +124,9 @@
         .ban-support-link:active { transform: scale(0.95); }
         .podium { display: flex; justify-content: center; align-items: flex-end; gap: 6px; margin-bottom: 12px; width: 100%; max-width: 340px; }
         .podium-col { flex: 1; border-radius: 12px 12px 0 0; padding: 8px 4px; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(30,27,75,0.7); border: 1px solid rgba(124,58,237,0.3); }
-        .podium-col.gold { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.6); min-height: 90px; }
-        .podium-col.silver { background: rgba(192,192,192,0.1); border-color: rgba(192,192,192,0.4); min-height: 70px; }
-        .podium-col.bronze { background: rgba(205,127,50,0.1); border-color: rgba(205,127,50,0.4); min-height: 55px; }
+        .podium-col.gold { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.6); min-height: 90px; order: 1; }
+        .podium-col.silver { background: rgba(192,192,192,0.1); border-color: rgba(192,192,192,0.4); min-height: 70px; order: 0; }
+        .podium-col.bronze { background: rgba(205,127,50,0.1); border-color: rgba(205,127,50,0.4); min-height: 55px; order: 2; }
     </style>
 </head>
 <body>
@@ -204,21 +204,21 @@
         </div>
     </div>
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand(); tg.ready();
+        const tg = window.Telegram.WebApp; tg.expand(); tg.ready();
         const API_URL = "https://astrotap-bot.onrender.com";
         const urlParams = new URLSearchParams(window.location.search);
         const MY_USER_ID = urlParams.get('user_id') || tg.initDataUnsafe?.user?.id || 0;
         const MY_USERNAME = urlParams.get('username') || tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || "unknown";
-        const BOT_USERNAME = "твой_бот";
+        const BOT_USERNAME = "AstroTapBot";
 
         const starsContainer = document.getElementById('stars');
         for (let i = 0; i < 100; i++) { const s = document.createElement('div'); s.classList.add('star'); const sz = Math.random() * 2 + 1; s.style.width = sz + 'px'; s.style.height = sz + 'px'; s.style.left = Math.random() * 100 + '%'; s.style.top = Math.random() * 100 + '%'; s.style.setProperty('--duration', (Math.random() * 3 + 2) + 's'); s.style.setProperty('--delay', (Math.random() * 3) + 's'); starsContainer.appendChild(s); }
         const loadingScreen = document.getElementById('loadingScreen');
         window.addEventListener('load', () => { setTimeout(() => { loadingScreen.classList.add('hidden'); setTimeout(() => loadingScreen.remove(), 600); }, 1500); });
-        const onboardingOverlay = document.getElementById('onboardingOverlay'), onboardingCard = document.getElementById('onboardingCard'), slides = document.querySelectorAll('.onboarding-slide'), dots = document.querySelectorAll('.onboarding-dot');
+        const onboardingOverlay = document.getElementById('onboardingOverlay'), onboardingCard = document.getElementById('onboardingCard');
         let currentSlide = 0, touchStartX = 0, mouseDown = false, mouseStartX = 0;
         if (localStorage.getItem('astrotap_onboarding_done') === 'true') onboardingOverlay.remove();
+        const slides = document.querySelectorAll('.onboarding-slide'), dots = document.querySelectorAll('.onboarding-dot');
         function showSlide(i) { slides.forEach(s => s.style.display = 'none'); dots.forEach(d => d.classList.remove('active')); slides[i].style.display = 'block'; dots[i].classList.add('active'); currentSlide = i; }
         function closeOnboarding() { onboardingOverlay.classList.add('hidden'); setTimeout(() => onboardingOverlay.remove(), 400); localStorage.setItem('astrotap_onboarding_done', 'true'); }
         onboardingCard.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
@@ -279,7 +279,6 @@
                 activeTitle = title;
                 renderTitles();
                 document.getElementById('profileActiveTitle').textContent = title;
-                setTimeout(() => profileOverlay.classList.add('hidden'), 500);
             } catch(e) {}
         }
 
@@ -326,11 +325,19 @@
                 const resp = await fetch(API_URL + "/leaderboard"); const data = await resp.json();
                 const list = document.getElementById('leaderboardList'); list.innerHTML = '';
                 if (data.leaderboard.length === 0) { list.innerHTML = '<div style="text-align:center;color:#818cf8;padding:20px;">Пока никто не сохранял очки</div>'; return; }
+                // Подиум 2-1-3 (серебро слева, золото центр, бронза справа)
                 const top3 = data.leaderboard.slice(0, 3);
                 if (top3.length >= 3) {
                     const podium = document.createElement('div'); podium.classList.add('podium');
-                    const orders = [1, 0, 2], medals = ["🥇", "🥈", "🥉"], titles = ["👑 Повелитель", "🌟 Амбассадор", "💫 Сеньор"], colors = ["gold", "silver", "bronze"];
-                    orders.forEach(i => { const col = document.createElement('div'); col.classList.add('podium-col', colors[i]); col.innerHTML = `<div style="font-size:20px;">${medals[i]}</div><div style="font-size:9px;font-weight:700;color:#fbbf24;">${titles[i]}</div><div style="font-size:9px;color:#c7d2fe;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(top3[i].username)}</div><div style="font-size:10px;font-weight:700;color:#fbbf24;">💎 ${formatNumber(top3[i].balance)}</div>`; podium.appendChild(col); });
+                    const order = [1, 0, 2]; // 2 место, 1 место, 3 место
+                    const medals = ["🥈", "🥇", "🥉"];
+                    const titles = ["🌟 Амбассадор", "👑 Повелитель", "💫 Сеньор"];
+                    const colors = ["silver", "gold", "bronze"];
+                    order.forEach(i => {
+                        const col = document.createElement('div'); col.classList.add('podium-col', colors[i]);
+                        col.innerHTML = `<div style="font-size:20px;">${medals[i]}</div><div style="font-size:9px;font-weight:700;color:#fbbf24;">${titles[i]}</div><div style="font-size:9px;color:#c7d2fe;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(top3[i].username)}</div><div style="font-size:10px;font-weight:700;color:#fbbf24;">💎 ${formatNumber(top3[i].balance)}</div>`;
+                        podium.appendChild(col);
+                    });
                     list.appendChild(podium);
                 }
                 data.leaderboard.forEach((user, i) => { const row = document.createElement('div'); row.classList.add('leaderboard-row'); const rank = i + 1; if (rank === 1) row.classList.add('top1'); if (rank === 2) row.classList.add('top2'); if (rank === 3) row.classList.add('top3'); row.innerHTML = `<div class="leaderboard-rank">${rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank}</div><div class="leaderboard-name">${escapeHTML(user.username)}${user.title ? ' <span style="color:#fbbf24;font-size:9px;">'+user.title+'</span>' : ''}</div><div class="leaderboard-balance">💎 ${formatNumber(user.balance)}</div>`; list.appendChild(row); });
